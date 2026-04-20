@@ -18,6 +18,13 @@ type SendState = "idle" | "sending" | "error";
 const FALLBACK_PLACEHOLDER =
   "Write a short outreach note to help this customer invite a teammate";
 
+// Always-available default so the textarea is never empty, regardless of AI outcome.
+function buildDefaultTemplate(account: Account): string {
+  const first = account.contactName?.split(" ")[0];
+  const greeting = first ? `Hey ${first}` : "Hey";
+  return `${greeting} — most teams see value once they invite a teammate. Want help getting your team set up?`;
+}
+
 // Simulated generator — variable latency + occasional failures so timeout/fallback paths are real.
 function generateSuggestedMessage(account: Account): Promise<string> {
   return new Promise((resolve, reject) => {
