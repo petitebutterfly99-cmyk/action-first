@@ -526,7 +526,7 @@ export default function ActionQueuePage() {
   };
 
   const handleSkipOutcome = (account: Account) => {
-    updateAccount(account.id, { status: "contacted" });
+    updateAccountWithFilterAwareness(account.id, { status: "contacted" }, account.name);
     setOutcomeAccount(null);
     advanceToNextBestAccount(account.id);
   };
