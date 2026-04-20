@@ -48,6 +48,60 @@ export default function ActionQueuePage() {
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
+  const [bulkFollowUpOpen, setBulkFollowUpOpen] = useState(false);
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const applyBulk = (updater: (a: Account) => Partial<Account> | null) => {
+    setAccounts((prev) =>
+      prev.map((a) => {
+        if (!selectedIds.has(a.id)) return a;
+        const u = updater(a);
+        return u ? { ...a, ...u } : a;
+      }),
+    );
+  };
+
+  const handleBulkSendOutreach = () => {
+    const count = selectedIds.size;
+    applyBulk(() => ({ status: "contacted" as AccountStatus }));
+    toast({ title: "Outreach sent", description: `Sent to ${count} account${count > 1 ? "s" : ""}.` });
+    clearSelection();
+  };
+
+  const handleBulkMarkReviewed = () => {
+    const count = selectedIds.size;
+    applyBulk(() => ({ status: "reviewed" as AccountStatus }));
+    toast({ title: "Marked as reviewed", description: `${count} account${count > 1 ? "s" : ""} marked as reviewed.` });
+    clearSelection();
+  };
+
+  const handleBulkAssignFollowUp = (date: Date | undefined) => {
+    if (!date) return;
+    const ids = Array.from(selectedIds);
+    setFollowUpDates((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => (next[id] = date));
+      return next;
+    });
+    setBulkFollowUpOpen(false);
+    toast({
+      title: "Follow-up assigned",
+      description: `${ids.length} account${ids.length > 1 ? "s" : ""} scheduled for ${format(date, "PPP")}.`,
+    });
+    clearSelection();
+  };
 
   const riskCounts = useMemo(
     () => ({
