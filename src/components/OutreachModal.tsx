@@ -18,6 +18,13 @@ type SendState = "idle" | "sending" | "error";
 const FALLBACK_PLACEHOLDER =
   "Write a short outreach note to help this customer invite a teammate";
 
+// Always-available default so the textarea is never empty, regardless of AI outcome.
+function buildDefaultTemplate(account: Account): string {
+  const first = account.contactName?.split(" ")[0];
+  const greeting = first ? `Hey ${first}` : "Hey";
+  return `${greeting} — most teams see value once they invite a teammate. Want help getting your team set up?`;
+}
+
 // Simulated generator — variable latency + occasional failures so timeout/fallback paths are real.
 function generateSuggestedMessage(account: Account): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -102,12 +109,12 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
       });
   };
 
-  // Open modal immediately; kick off generation in the background for new accounts.
+  // Open modal immediately with a default template; kick off AI generation in the background.
   useEffect(() => {
     if (!account || !open) return;
     if (account.id === lastAccountId) return;
     setLastAccountId(account.id);
-    setMessage("");
+    setMessage(buildDefaultTemplate(account));
     setSendState("idle");
     setStillSending(false);
     userTypedRef.current = false;
@@ -117,7 +124,11 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
 
   const handleRetryGeneration = () => {
     if (!account) return;
-    if (message.trim().length === 0) userTypedRef.current = false;
+    // If the user hasn't authored their own message, reset the typed flag so a
+    // successful retry can replace the default template with the AI suggestion.
+    if (!userTypedRef.current || message === buildDefaultTemplate(account)) {
+      userTypedRef.current = false;
+    }
     startGeneration(account);
   };
 
@@ -212,7 +223,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
             <div className="flex items-start justify-between gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
-                <span>We couldn't generate a suggestion right now. You can still write your own.</span>
+                <span>We couldn't generate a suggestion right now. You can still edit this message.</span>
               </div>
               <Button
                 size="sm"
