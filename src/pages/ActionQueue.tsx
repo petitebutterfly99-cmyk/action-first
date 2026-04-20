@@ -92,6 +92,11 @@ export default function ActionQueuePage() {
   const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [nextBestAccount, setNextBestAccount] = useState<Account | null>(null);
+  const [nextBestMode, setNextBestMode] = useState<"ready" | "loading" | "done" | "error">("ready");
+  const [nextBestStillSearching, setNextBestStillSearching] = useState(false);
+  const [nextBestOpen, setNextBestOpen] = useState(false);
+  const lastHandledIdRef = useRef<string | null>(null);
+  const stillSearchingTimer = useRef<number | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
   const [statusFilter, setStatusFilter] = useState<"all" | AccountStatus>("all");
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
