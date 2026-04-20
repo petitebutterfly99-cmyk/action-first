@@ -53,12 +53,56 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
+  const [generationTimedOut, setGenerationTimedOut] = useState(false);
   const [sendState, setSendState] = useState<SendState>("idle");
   const [stillSending, setStillSending] = useState(false);
   const [lastAccountId, setLastAccountId] = useState<string | null>(null);
   const stillSendingTimer = useRef<number | null>(null);
+  const userTypedRef = useRef(false);
+  const generationIdRef = useRef(0);
 
-  // Regenerate when account changes / modal opens fresh.
+  const startGeneration = (acc: Account) => {
+    const myId = ++generationIdRef.current;
+    setIsGenerating(true);
+    setGenerationFailed(false);
+    setGenerationTimedOut(false);
+
+    let settled = false;
+
+    // Hard 2s cap — after which generation becomes non-blocking and we surface fallback copy.
+    // We do NOT cancel the underlying promise; if it lands later and the user hasn't typed,
+    // we still insert the suggestion.
+    const timeoutHandle = window.setTimeout(() => {
+      if (settled || myId !== generationIdRef.current) return;
+      setGenerationTimedOut(true);
+      setIsGenerating(false);
+    }, GENERATION_TIMEOUT_MS);
+
+    generateSuggestedMessage(acc)
+      .then((text) => {
+        settled = true;
+        window.clearTimeout(timeoutHandle);
+        if (myId !== generationIdRef.current) return;
+        setIsGenerating(false);
+        if (!userTypedRef.current) {
+          setMessage(text);
+          setGenerationTimedOut(false);
+          setGenerationFailed(false);
+        }
+      })
+      .catch(() => {
+        settled = true;
+        window.clearTimeout(timeoutHandle);
+        if (myId !== generationIdRef.current) return;
+        setIsGenerating(false);
+        if (!userTypedRef.current) {
+          setGenerationFailed(true);
+          setGenerationTimedOut(false);
+        }
+      });
+  };
+
+  // Open modal immediately; kick off generation in the background for new accounts.
   useEffect(() => {
     if (!account || !open) return;
     if (account.id === lastAccountId) return;
@@ -66,27 +110,21 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
     setMessage("");
     setSendState("idle");
     setStillSending(false);
-    setGenerationFailed(false);
-    setIsGenerating(true);
-    let cancelled = false;
-    generateSuggestedMessage(account)
-      .then((text) => {
-        if (cancelled) return;
-        setMessage(text);
-        setGenerationFailed(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setGenerationFailed(true);
-        setMessage("");
-      })
-      .finally(() => {
-        if (!cancelled) setIsGenerating(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    userTypedRef.current = false;
+    startGeneration(account);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, open, lastAccountId]);
+
+  const handleRetryGeneration = () => {
+    if (!account) return;
+    if (message.trim().length === 0) userTypedRef.current = false;
+    startGeneration(account);
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    userTypedRef.current = true;
+    setMessage(e.target.value);
+  };
 
   const clearStillSendingTimer = () => {
     if (stillSendingTimer.current) {
