@@ -313,29 +313,75 @@ export default function ActionQueuePage() {
     setOutcomeAccount(account);
   };
 
-  const advanceToNextBestAccount = (justHandledId: string) => {
-    const riskOrder = { high: 0, medium: 1, low: 2 };
-    const candidate = [...accounts]
-      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
-      .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
-    if (candidate) {
-      setSelectedAccount(null);
-      setNextBestAccount(candidate);
-    } else {
-      setSelectedAccount(null);
-      toast({ title: "Queue clear", description: "No more accounts need action right now." });
+  const clearStillSearchingTimer = () => {
+    if (stillSearchingTimer.current) {
+      window.clearTimeout(stillSearchingTimer.current);
+      stillSearchingTimer.current = null;
     }
   };
 
-  const handleContinueNextBest = (account: Account) => {
+  const advanceToNextBestAccount = (justHandledId: string) => {
+    lastHandledIdRef.current = justHandledId;
+    setSelectedAccount(null);
     setNextBestAccount(null);
+    setNextBestMode("loading");
+    setNextBestStillSearching(false);
+    setNextBestOpen(true);
+    clearStillSearchingTimer();
+    stillSearchingTimer.current = window.setTimeout(() => setNextBestStillSearching(true), 2000);
+
+    // Simulated async lookup with rare failure for transparent UX states.
+    window.setTimeout(() => {
+      clearStillSearchingTimer();
+      setNextBestStillSearching(false);
+
+      // ~10% simulated failure
+      if (Math.random() < 0.1) {
+        setNextBestMode("error");
+        return;
+      }
+
+      const riskOrder = { high: 0, medium: 1, low: 2 };
+      const candidate = [...accounts]
+        .filter(
+          (a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk),
+        )
+        .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
+
+      if (candidate) {
+        setNextBestAccount(candidate);
+        setNextBestMode("ready");
+      } else {
+        setNextBestMode("done");
+      }
+    }, 700);
+  };
+
+  const handleRetryNextBest = () => {
+    if (lastHandledIdRef.current) advanceToNextBestAccount(lastHandledIdRef.current);
+  };
+
+  const handleContinueNextBest = (account: Account) => {
+    setNextBestOpen(false);
+    setNextBestAccount(null);
+    setNextBestMode("ready");
     setSelectedAccount(account);
   };
 
   const handleStopNextBest = () => {
+    clearStillSearchingTimer();
+    setNextBestOpen(false);
     setNextBestAccount(null);
-    toast({ title: "Stopped for now", description: "Pick up where you left off anytime." });
+    setNextBestMode("ready");
+    setNextBestStillSearching(false);
   };
+
+  const handleNextBestSwitchRisk = (risk: RiskLevel) => {
+    setRiskFilter([risk]);
+    handleStopNextBest();
+    toast({ title: "Filter updated", description: `Now viewing ${risk === "low" ? "Healthy" : risk === "medium" ? "Medium Risk" : "High Risk"} accounts.` });
+  };
+
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
     setOutcomes((prev) => ({ ...prev, [account.id]: outcome }));
