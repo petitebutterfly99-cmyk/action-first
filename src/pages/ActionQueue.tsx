@@ -435,6 +435,19 @@ export default function ActionQueuePage() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4">Queue Status</span>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}>
+          <SelectTrigger className="h-9 w-[180px] text-sm">
+            <SelectValue placeholder="All" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex h-[calc(100vh-11rem)]">
