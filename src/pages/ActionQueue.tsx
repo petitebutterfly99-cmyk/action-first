@@ -195,6 +195,13 @@ export default function ActionQueuePage() {
         onClose={() => setOutreachAccount(null)}
         onSend={handleSendOutreach}
       />
+      <OutcomeModal
+        account={outcomeAccount}
+        open={!!outcomeAccount}
+        onClose={() => setOutcomeAccount(null)}
+        onSave={handleSaveOutcome}
+        onSkip={handleSkipOutcome}
+      />
       <PromptInviteModal
         account={promptAccount}
         open={!!promptAccount}
