@@ -1,4 +1,4 @@
-# RetainIQ — Milestone 3 (End-of-Milestone Summary)
+# RetainIQ — M3 (End-of-M3 Summary)
 
 A focused Customer Success workflow tool — Gainsight-inspired but explicitly **not** a dashboard — built to test a specific churn-prevention hypothesis. This document captures the state of the product at the end of Milestone 3.
 
