@@ -284,6 +284,12 @@ export default function ActionQueuePage() {
             <span>{accounts.filter((a) => a.risk === "high").length} high risk</span>
             <span>·</span>
             <span>{accounts.filter((a) => a.status === "contacted").length} contacted today</span>
+            {snoozedCount > 0 && (
+              <>
+                <span>·</span>
+                <span>{snoozedCount} snoozed</span>
+              </>
+            )}
           </div>
 
           <div className="space-y-3 pb-24">
@@ -295,6 +301,7 @@ export default function ActionQueuePage() {
                 onPromptInvite={setPromptAccount}
                 onMarkReviewed={handleMarkReviewed}
                 onSelect={setSelectedAccount}
+                onSnooze={setSnoozeAccount}
                 selected={selectedIds.has(account.id)}
                 onToggleSelected={toggleSelected}
               />
