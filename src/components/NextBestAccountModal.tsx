@@ -1,13 +1,20 @@
-import { Account } from "@/data/mockAccounts";
+import { Account, RiskLevel } from "@/data/mockAccounts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowRight, Sparkles, AlertTriangle, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+
+export type NextBestMode = "ready" | "loading" | "done" | "error";
 
 interface NextBestAccountModalProps {
   account: Account | null;
   open: boolean;
+  mode?: NextBestMode;
+  stillSearching?: boolean;
   onContinue: (account: Account) => void;
   onStop: () => void;
+  onRetry?: () => void;
+  onSwitchRisk?: (risk: RiskLevel) => void;
+  onReturnToQueue?: () => void;
 }
 
 function riskReason(account: Account): string {
@@ -19,7 +26,114 @@ function riskReason(account: Account): string {
   return "Showing low activation signals";
 }
 
-export function NextBestAccountModal({ account, open, onContinue, onStop }: NextBestAccountModalProps) {
+export function NextBestAccountModal({
+  account,
+  open,
+  mode = "ready",
+  stillSearching = false,
+  onContinue,
+  onStop,
+  onRetry,
+  onSwitchRisk,
+  onReturnToQueue,
+}: NextBestAccountModalProps) {
+  // Loading state ------------------------------------------------------------
+  if (mode === "loading") {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onStop()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 text-primary animate-spin" />
+              <DialogTitle className="text-base">
+                {stillSearching ? "Still finding the next account…" : "Loading next account…"}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">
+              Keeping the momentum going.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-3 animate-pulse">
+            <div className="h-4 w-2/3 bg-muted rounded" />
+            <div className="h-3 w-1/2 bg-muted rounded" />
+            <div className="h-3 w-3/4 bg-muted rounded" />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" size="sm" onClick={onStop}>
+              Stop for now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Done state --------------------------------------------------------------
+  if (mode === "done") {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onStop()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[hsl(var(--risk-low))]" />
+              <DialogTitle className="text-base">You're done for now</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">
+              There are no more accounts left in this queue. You've handled all accounts in the current view.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-[hsl(var(--risk-low))]/30 bg-[hsl(var(--badge-success-bg))] p-4 text-xs text-[hsl(var(--badge-success-fg))]">
+            Nice work — all accounts in this queue have been handled.
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => onSwitchRisk?.("medium")}>
+              View Medium Risk
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => onSwitchRisk?.("low")}>
+              View Healthy
+            </Button>
+            <Button size="sm" onClick={onReturnToQueue ?? onStop}>
+              Return to Action Queue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Error state -------------------------------------------------------------
+  if (mode === "error") {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onStop()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[hsl(var(--risk-high))]" />
+              <DialogTitle className="text-base">Couldn't load the next account</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">
+              Your last action was saved, but we couldn't load the next item in the queue.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground flex items-center gap-2">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[hsl(var(--risk-low))]" />
+            Last action saved successfully.
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" size="sm" onClick={onReturnToQueue ?? onStop}>
+              Return to Action Queue
+            </Button>
+            <Button size="sm" onClick={onRetry}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+              Retry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Ready state (default) ---------------------------------------------------
   if (!account) return null;
 
   const riskLabel =
