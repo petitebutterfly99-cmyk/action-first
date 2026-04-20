@@ -17,7 +17,16 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "contacted", label: "Contacted" },
+  { value: "reviewed", label: "Reviewed" },
+  { value: "snoozed", label: "Snoozed" },
+  { value: "follow_up_needed", label: "Follow-up Needed" },
+];
 
 const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
   {
@@ -80,6 +89,7 @@ export default function ActionQueuePage() {
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [nextBestAccount, setNextBestAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
+  const [statusFilter, setStatusFilter] = useState<"all" | AccountStatus>("all");
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
@@ -191,12 +201,13 @@ export default function ActionQueuePage() {
     };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
+      .filter((a) => statusFilter === "all" || a.status === statusFilter)
       .sort((a, b) => {
         const sd = statusOrder[a.status] - statusOrder[b.status];
         if (sd !== 0) return sd;
         return riskOrder[a.risk] - riskOrder[b.risk];
       });
-  }, [accounts, riskFilter]);
+  }, [accounts, riskFilter, statusFilter]);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
@@ -424,6 +435,19 @@ export default function ActionQueuePage() {
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4">Queue Status</span>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}>
+          <SelectTrigger className="h-9 w-[180px] text-sm">
+            <SelectValue placeholder="All" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_FILTER_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex h-[calc(100vh-11rem)]">
@@ -445,23 +469,29 @@ export default function ActionQueuePage() {
           </div>
 
           <div className="space-y-3 pb-24">
-            {sortedAccounts.map((account) => (
-              <AccountCard
-                key={account.id}
-                ref={(el) => (cardRefs.current[account.id] = el)}
-                account={account}
-                onSendOutreach={setOutreachAccount}
-                onPromptInvite={handlePromptInvite}
-                onMarkReviewed={handleMarkReviewed}
-                onSelect={setSelectedAccount}
-                onSnooze={setSnoozeAccount}
-                selected={selectedIds.has(account.id)}
-                onToggleSelected={toggleSelected}
-                highlight={highlightId === account.id}
-                snoozeUntil={snoozes[account.id]?.until}
-                followUpDate={followUpDates[account.id]}
-              />
-            ))}
+            {sortedAccounts.length === 0 ? (
+              <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                No accounts match this filter
+              </div>
+            ) : (
+              sortedAccounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  ref={(el) => (cardRefs.current[account.id] = el)}
+                  account={account}
+                  onSendOutreach={setOutreachAccount}
+                  onPromptInvite={handlePromptInvite}
+                  onMarkReviewed={handleMarkReviewed}
+                  onSelect={setSelectedAccount}
+                  onSnooze={setSnoozeAccount}
+                  selected={selectedIds.has(account.id)}
+                  onToggleSelected={toggleSelected}
+                  highlight={highlightId === account.id}
+                  snoozeUntil={snoozes[account.id]?.until}
+                  followUpDate={followUpDates[account.id]}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
