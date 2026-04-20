@@ -109,12 +109,12 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
       });
   };
 
-  // Open modal immediately; kick off generation in the background for new accounts.
+  // Open modal immediately with a default template; kick off AI generation in the background.
   useEffect(() => {
     if (!account || !open) return;
     if (account.id === lastAccountId) return;
     setLastAccountId(account.id);
-    setMessage("");
+    setMessage(buildDefaultTemplate(account));
     setSendState("idle");
     setStillSending(false);
     userTypedRef.current = false;
