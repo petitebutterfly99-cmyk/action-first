@@ -8,6 +8,7 @@ import { OutreachModal } from "@/components/OutreachModal";
 import { OutcomeModal, OutreachOutcome, STATUS_TO_ACCOUNT_STATUS } from "@/components/OutcomeModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
 import { NextBestAccountModal } from "@/components/NextBestAccountModal";
+import { SnoozeModal, SnoozeData } from "@/components/SnoozeModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -53,6 +54,20 @@ export default function ActionQueuePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
   const [bulkFollowUpOpen, setBulkFollowUpOpen] = useState(false);
+  const [snoozeAccount, setSnoozeAccount] = useState<Account | null>(null);
+  const [snoozes, setSnoozes] = useState<Record<string, SnoozeData>>({});
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick every minute so snoozed accounts auto-reappear when their time is up.
+  useMemo(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isSnoozed = (id: string) => {
+    const s = snoozes[id];
+    return !!s && s.until.getTime() > now;
+  };
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -119,12 +134,15 @@ export default function ActionQueuePage() {
     const statusOrder: Record<AccountStatus, number> = { needs_action: 0, contacted: 1, reviewed: 2 };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
+      .filter((a) => !isSnoozed(a.id))
       .sort((a, b) => {
         const sd = statusOrder[a.status] - statusOrder[b.status];
         if (sd !== 0) return sd;
         return riskOrder[a.risk] - riskOrder[b.risk];
       });
-  }, [accounts, riskFilter]);
+  }, [accounts, riskFilter, snoozes, now]);
+
+  const snoozedCount = Object.keys(snoozes).filter((id) => isSnoozed(id)).length;
 
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
@@ -146,7 +164,7 @@ export default function ActionQueuePage() {
     // Find the highest-priority remaining account that still needs action.
     const riskOrder = { high: 0, medium: 1, low: 2 };
     const candidate = [...accounts]
-      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
+      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk) && !isSnoozed(a.id))
       .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
     if (candidate) {
       // Surface as Next Best Account flow so the CSM can confirm and stay in the loop.
@@ -195,6 +213,36 @@ export default function ActionQueuePage() {
     advanceToNextBestAccount(account.id);
   };
 
+  const REASON_LABELS: Record<string, string> = {
+    already_contacted: "Already contacted",
+    not_relevant: "Not relevant",
+    waiting_on_customer: "Waiting on customer",
+  };
+
+  const DURATION_LABELS: Record<string, string> = {
+    "2_days": "2 days",
+    "1_week": "1 week",
+    "until_renewal": "renewal",
+  };
+
+  const handleSnooze = (account: Account, data: SnoozeData) => {
+    setSnoozes((prev) => ({ ...prev, [account.id]: data }));
+    setSnoozeAccount(null);
+    // Clean up any selection state and close detail if open.
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(account.id);
+      return next;
+    });
+    if (selectedAccount?.id === account.id) setSelectedAccount(null);
+    toast({
+      title: `Snoozed for ${DURATION_LABELS[data.duration]}`,
+      description: data.reason
+        ? `${account.name} · ${REASON_LABELS[data.reason]}`
+        : `${account.name} hidden from queue.`,
+    });
+  };
+
   return (
     <AppLayout title="My Accounts Requiring Attention" subtitle="Accounts at risk due to lack of early activation">
       {/* Filter bar */}
@@ -236,6 +284,12 @@ export default function ActionQueuePage() {
             <span>{accounts.filter((a) => a.risk === "high").length} high risk</span>
             <span>·</span>
             <span>{accounts.filter((a) => a.status === "contacted").length} contacted today</span>
+            {snoozedCount > 0 && (
+              <>
+                <span>·</span>
+                <span>{snoozedCount} snoozed</span>
+              </>
+            )}
           </div>
 
           <div className="space-y-3 pb-24">
@@ -247,6 +301,7 @@ export default function ActionQueuePage() {
                 onPromptInvite={setPromptAccount}
                 onMarkReviewed={handleMarkReviewed}
                 onSelect={setSelectedAccount}
+                onSnooze={setSnoozeAccount}
                 selected={selectedIds.has(account.id)}
                 onToggleSelected={toggleSelected}
               />
@@ -331,6 +386,12 @@ export default function ActionQueuePage() {
         open={!!nextBestAccount}
         onContinue={handleContinueNextBest}
         onStop={handleStopNextBest}
+      />
+      <SnoozeModal
+        account={snoozeAccount}
+        open={!!snoozeAccount}
+        onClose={() => setSnoozeAccount(null)}
+        onSnooze={handleSnooze}
       />
     </AppLayout>
   );
