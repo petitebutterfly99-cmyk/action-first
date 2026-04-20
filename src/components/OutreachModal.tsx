@@ -18,9 +18,11 @@ type SendState = "idle" | "sending" | "error";
 const FALLBACK_PLACEHOLDER =
   "Write a short outreach note to help this customer invite a teammate";
 
-// Simulated generator — fails ~15% of the time so the failure path is real.
+// Simulated generator — variable latency + occasional failures so timeout/fallback paths are real.
 function generateSuggestedMessage(account: Account): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Random latency 300ms–4500ms so the 2s timeout is exercised regularly.
+    const latency = 300 + Math.random() * 4200;
     setTimeout(() => {
       if (Math.random() < 0.15) {
         reject(new Error("generation_failed"));
@@ -30,9 +32,11 @@ function generateSuggestedMessage(account: Account): Promise<string> {
       resolve(
         `Hey ${first} — most teams see value once they invite a teammate. Want help getting your team set up?`,
       );
-    }, 350);
+    }, latency);
   });
 }
+
+const GENERATION_TIMEOUT_MS = 2000;
 
 // Simulated send — fails ~30% of the time so retry/copy paths can be exercised.
 function performSend(): Promise<void> {
@@ -49,12 +53,56 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
+  const [generationTimedOut, setGenerationTimedOut] = useState(false);
   const [sendState, setSendState] = useState<SendState>("idle");
   const [stillSending, setStillSending] = useState(false);
   const [lastAccountId, setLastAccountId] = useState<string | null>(null);
   const stillSendingTimer = useRef<number | null>(null);
+  const userTypedRef = useRef(false);
+  const generationIdRef = useRef(0);
 
-  // Regenerate when account changes / modal opens fresh.
+  const startGeneration = (acc: Account) => {
+    const myId = ++generationIdRef.current;
+    setIsGenerating(true);
+    setGenerationFailed(false);
+    setGenerationTimedOut(false);
+
+    let settled = false;
+
+    // Hard 2s cap — after which generation becomes non-blocking and we surface fallback copy.
+    // We do NOT cancel the underlying promise; if it lands later and the user hasn't typed,
+    // we still insert the suggestion.
+    const timeoutHandle = window.setTimeout(() => {
+      if (settled || myId !== generationIdRef.current) return;
+      setGenerationTimedOut(true);
+      setIsGenerating(false);
+    }, GENERATION_TIMEOUT_MS);
+
+    generateSuggestedMessage(acc)
+      .then((text) => {
+        settled = true;
+        window.clearTimeout(timeoutHandle);
+        if (myId !== generationIdRef.current) return;
+        setIsGenerating(false);
+        if (!userTypedRef.current) {
+          setMessage(text);
+          setGenerationTimedOut(false);
+          setGenerationFailed(false);
+        }
+      })
+      .catch(() => {
+        settled = true;
+        window.clearTimeout(timeoutHandle);
+        if (myId !== generationIdRef.current) return;
+        setIsGenerating(false);
+        if (!userTypedRef.current) {
+          setGenerationFailed(true);
+          setGenerationTimedOut(false);
+        }
+      });
+  };
+
+  // Open modal immediately; kick off generation in the background for new accounts.
   useEffect(() => {
     if (!account || !open) return;
     if (account.id === lastAccountId) return;
@@ -62,27 +110,21 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
     setMessage("");
     setSendState("idle");
     setStillSending(false);
-    setGenerationFailed(false);
-    setIsGenerating(true);
-    let cancelled = false;
-    generateSuggestedMessage(account)
-      .then((text) => {
-        if (cancelled) return;
-        setMessage(text);
-        setGenerationFailed(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setGenerationFailed(true);
-        setMessage("");
-      })
-      .finally(() => {
-        if (!cancelled) setIsGenerating(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    userTypedRef.current = false;
+    startGeneration(account);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, open, lastAccountId]);
+
+  const handleRetryGeneration = () => {
+    if (!account) return;
+    if (message.trim().length === 0) userTypedRef.current = false;
+    startGeneration(account);
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    userTypedRef.current = true;
+    setMessage(e.target.value);
+  };
 
   const clearStillSendingTimer = () => {
     if (stillSendingTimer.current) {
@@ -135,7 +177,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
   if (!account) return null;
 
   const isSending = sendState === "sending";
-  const sendDisabled = isSending || isGenerating || !message.trim();
+  const sendDisabled = isSending || !message.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -148,31 +190,41 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
             To: {account.contactName} ({account.contactEmail})
           </div>
 
-          {generationFailed && (
-            <div className="flex items-start gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
-              <span>We couldn't generate a suggested message. You can still write your own.</span>
+          <Textarea
+            value={message}
+            onChange={handleMessageChange}
+            rows={4}
+            className="text-sm"
+            placeholder={FALLBACK_PLACEHOLDER}
+            disabled={isSending}
+            autoFocus
+          />
+
+          {/* Background generation status — never blocks the compose UI. */}
+          {isGenerating && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Generating suggested message…
             </div>
           )}
 
-          <div className="relative">
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={4}
-              className="text-sm"
-              placeholder={FALLBACK_PLACEHOLDER}
-              disabled={isSending}
-            />
-            {isGenerating && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Generating suggested message…
-                </div>
+          {!isGenerating && (generationTimedOut || generationFailed) && (
+            <div className="flex items-start justify-between gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
+                <span>We couldn't generate a suggestion right now. You can still write your own.</span>
               </div>
-            )}
-          </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs px-2 -mt-0.5 shrink-0"
+                onClick={handleRetryGeneration}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Try again
+              </Button>
+            </div>
+          )}
 
           {sendState === "error" && (
             <div className="rounded-md border border-[hsl(var(--risk-high))] bg-[hsl(var(--badge-urgent-bg))] p-3 space-y-2">
