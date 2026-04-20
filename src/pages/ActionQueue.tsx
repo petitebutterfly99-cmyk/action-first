@@ -761,9 +761,14 @@ export default function ActionQueuePage() {
       />
       <NextBestAccountModal
         account={nextBestAccount}
-        open={!!nextBestAccount}
+        open={nextBestOpen}
+        mode={nextBestMode}
+        stillSearching={nextBestStillSearching}
         onContinue={handleContinueNextBest}
         onStop={handleStopNextBest}
+        onRetry={handleRetryNextBest}
+        onSwitchRisk={handleNextBestSwitchRisk}
+        onReturnToQueue={handleStopNextBest}
       />
       <SnoozeModal
         account={snoozeAccount}
