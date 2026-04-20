@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
-import { CalendarIcon, MessageCircle, CheckCircle, X } from "lucide-react";
+import { CalendarIcon, MessageCircle, CheckCircle, X, RefreshCw, AlertCircle, CheckCheck, Inbox, FilterX } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
@@ -82,7 +84,9 @@ function safeLog(
 export default function ActionQueuePage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
   const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
@@ -98,6 +102,39 @@ export default function ActionQueuePage() {
   const [snoozes, setSnoozes] = useState<Record<string, SnoozeData>>({});
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Simulated load — keeps loading + failure paths real for UX states.
+  const loadQueue = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    const t = setTimeout(() => {
+      try {
+        setAccounts(mockAccounts);
+        setIsLoading(false);
+      } catch {
+        setLoadError("We ran into a problem loading this queue.");
+        setIsLoading(false);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  };
+
+  useEffect(() => {
+    return loadQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resetHandledItems = () => {
+    setAccounts((prev) => prev.map((a) => ({ ...a, status: "needs_action" as AccountStatus })));
+    setSnoozes({});
+    setFollowUpDates({});
+    toast({ title: "Handled items reset", description: "All accounts moved back to Needs Action." });
+  };
+
+  const resetFilters = () => {
+    setRiskFilter(["high", "medium", "low"]);
+    setStatusFilter("all");
+  };
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -469,10 +506,113 @@ export default function ActionQueuePage() {
           </div>
 
           <div className="space-y-3 pb-24">
-            {sortedAccounts.length === 0 ? (
-              <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                No accounts match this filter
-              </div>
+            {isLoading ? (
+              // Skeleton rows while queue loads
+              Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="border border-border rounded-lg p-4 bg-card flex items-center gap-4"
+                >
+                  <Skeleton className="h-4 w-4 rounded" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                    </div>
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                  <Skeleton className="h-8 w-24 rounded-md" />
+                </div>
+              ))
+            ) : loadError ? (
+              <EmptyState
+                icon={<AlertCircle className="w-6 h-6 text-[hsl(var(--risk-high))]" />}
+                title="Couldn't load accounts"
+                body="We ran into a problem loading this queue."
+                actions={
+                  <Button size="sm" onClick={loadQueue}>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    Retry
+                  </Button>
+                }
+              />
+            ) : sortedAccounts.length === 0 ? (
+              (() => {
+                // Distinct empty states based on filter context
+                const onlyHigh =
+                  riskFilter.length === 1 && riskFilter[0] === "high" && statusFilter === "all";
+                const allHandled =
+                  statusFilter === "all" &&
+                  accounts.filter((a) => riskFilter.includes(a.risk)).length > 0 &&
+                  accounts
+                    .filter((a) => riskFilter.includes(a.risk))
+                    .every((a) => a.status !== "needs_action");
+
+                if (onlyHigh && riskCounts.high === 0) {
+                  return (
+                    <EmptyState
+                      icon={<CheckCheck className="w-6 h-6 text-[hsl(var(--risk-low))]" />}
+                      title="No high-risk accounts right now"
+                      body="There are no accounts currently flagged as High Risk based on early activation and invite signals."
+                      actions={
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["medium"])}>
+                            View Medium Risk
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["low"])}>
+                            View Healthy
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={loadQueue}>
+                            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                            Refresh queue
+                          </Button>
+                        </>
+                      }
+                    />
+                  );
+                }
+
+                if (allHandled) {
+                  return (
+                    <EmptyState
+                      icon={<Inbox className="w-6 h-6 text-[hsl(var(--risk-low))]" />}
+                      title="You've handled everything in this queue"
+                      body="All accounts in the current view have already been reviewed, contacted, or snoozed."
+                      actions={
+                        <>
+                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["medium"])}>
+                            View Medium Risk
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={loadQueue}>
+                            Return later
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={resetHandledItems}>
+                            Reset handled items
+                          </Button>
+                        </>
+                      }
+                    />
+                  );
+                }
+
+                return (
+                  <EmptyState
+                    icon={<FilterX className="w-6 h-6 text-muted-foreground" />}
+                    title="No accounts match this filter"
+                    body="Try changing Risk Level or Queue Status to see more accounts."
+                    actions={
+                      <>
+                        <Button size="sm" variant="outline" onClick={resetFilters}>
+                          Reset filters
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={resetFilters}>
+                          View All
+                        </Button>
+                      </>
+                    }
+                  />
+                );
+              })()
             ) : (
               sortedAccounts.map((account) => (
                 <AccountCard
@@ -493,6 +633,7 @@ export default function ActionQueuePage() {
               ))
             )}
           </div>
+
         </div>
       </div>
 
