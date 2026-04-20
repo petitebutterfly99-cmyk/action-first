@@ -39,8 +39,10 @@ export default function ActionQueuePage() {
   const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
+  const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
+  const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
 
   const riskCounts = useMemo(
     () => ({
