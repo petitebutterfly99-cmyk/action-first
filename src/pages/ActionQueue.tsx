@@ -279,6 +279,69 @@ export default function ActionQueuePage() {
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
+  // Counts per Queue Status, scoped to currently selected risk filter so the
+  // dropdown reflects what users will actually see when they pick a status.
+  const statusCounts = useMemo(() => {
+    const inRisk = accounts.filter((a) => riskFilter.includes(a.risk));
+    return {
+      all: inRisk.length,
+      contacted: inRisk.filter((a) => a.status === "contacted").length,
+      reviewed: inRisk.filter((a) => a.status === "reviewed").length,
+      snoozed: inRisk.filter((a) => a.status === "snoozed").length,
+      follow_up_needed: inRisk.filter((a) => a.status === "follow_up_needed").length,
+      needs_action: inRisk.filter((a) => a.status === "needs_action").length,
+    };
+  }, [accounts, riskFilter]);
+
+  const RISK_LABEL: Record<RiskLevel, string> = { high: "High Risk", medium: "Medium Risk", low: "Healthy" };
+  const STATUS_LABEL: Record<"all" | AccountStatus, string> = {
+    all: "All",
+    contacted: "Contacted",
+    reviewed: "Reviewed",
+    snoozed: "Snoozed",
+    follow_up_needed: "Follow-up Needed",
+    needs_action: "Needs Action",
+  };
+
+  const isDefaultFilters =
+    riskFilter.length === 3 && statusFilter === "all";
+
+  const clearFilters = () => {
+    setRiskFilter(["high", "medium", "low"]);
+    setStatusFilter("all");
+  };
+
+  const removeRiskChip = (r: RiskLevel) => {
+    const next = riskFilter.filter((x) => x !== r);
+    if (next.length === 0) setRiskFilter(["high", "medium", "low"]);
+    else setRiskFilter(next);
+  };
+
+  /**
+   * Wrap an account update so we notify the user if the row falls out of the
+   * active filters as a result. Prevents the "did it just disappear?" feel.
+   */
+  const updateAccountWithFilterAwareness = (
+    id: string,
+    updates: Partial<Account>,
+    accountName: string,
+  ) => {
+    const before = accounts.find((a) => a.id === id);
+    updateAccount(id, updates);
+    if (!before) return;
+    const after = { ...before, ...updates };
+    const wasVisible =
+      riskFilter.includes(before.risk) && (statusFilter === "all" || before.status === statusFilter);
+    const isVisible =
+      riskFilter.includes(after.risk) && (statusFilter === "all" || after.status === statusFilter);
+    if (wasVisible && !isVisible) {
+      toast({
+        title: "Moved out of current filter",
+        description: `${accountName} moved out of the current filter after its status was updated.`,
+      });
+    }
+  };
+
   const updateAccount = (id: string, updates: Partial<Account>) => {
     setAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates } : a)));
     if (selectedAccount?.id === id) {
@@ -443,7 +506,7 @@ export default function ActionQueuePage() {
     }
     safeLog(
       toast,
-      () => updateAccount(account.id, { status: newStatus }),
+      () => updateAccountWithFilterAwareness(account.id, { status: newStatus }, account.name),
       {
         action: `Saved outcome: ${outcome.status.replace("_", " ")}`,
         type: "save_outcome",
@@ -463,7 +526,7 @@ export default function ActionQueuePage() {
   };
 
   const handleSkipOutcome = (account: Account) => {
-    updateAccount(account.id, { status: "contacted" });
+    updateAccountWithFilterAwareness(account.id, { status: "contacted" }, account.name);
     setOutcomeAccount(null);
     advanceToNextBestAccount(account.id);
   };
@@ -471,7 +534,7 @@ export default function ActionQueuePage() {
   const handleMarkReviewed = (account: Account) => {
     safeLog(
       toast,
-      () => updateAccount(account.id, { status: "reviewed" }),
+      () => updateAccountWithFilterAwareness(account.id, { status: "reviewed" }, account.name),
       {
         action: "Marked as reviewed",
         type: "mark_reviewed",
@@ -513,7 +576,7 @@ export default function ActionQueuePage() {
       toast,
       () => {
         setSnoozes((prev) => ({ ...prev, [account.id]: data }));
-        updateAccount(account.id, { status: "snoozed" });
+        updateAccountWithFilterAwareness(account.id, { status: "snoozed" }, account.name);
       },
       {
         action: `Snoozed for ${DURATION_LABELS[data.duration]}`,
@@ -541,45 +604,104 @@ export default function ActionQueuePage() {
   return (
     <AppLayout title="My Accounts Requiring Attention" subtitle="Accounts at risk due to lack of early activation">
       {/* Filter bar */}
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Risk Level</span>
-        <ToggleGroup
-          type="multiple"
-          value={riskFilter}
-          onValueChange={(v) => {
-            if (v.length > 0) setRiskFilter(v as RiskLevel[]);
-          }}
-          className="gap-2"
-        >
-          {RISK_OPTIONS.map((opt) => (
-            <ToggleGroupItem
-              key={opt.value}
-              value={opt.value}
-              aria-label={opt.label}
-              className={cn(
-                "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
-                opt.activeClass,
-              )}
-            >
-              <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
-              {opt.label}
-              <span className="ml-2 text-xs opacity-70">({riskCounts[opt.value]})</span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-4">Queue Status</span>
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}>
-          <SelectTrigger className="h-9 w-[180px] text-sm">
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_FILTER_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+      <div className="mb-4 pb-4 border-b border-border space-y-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Risk Level</span>
+          <ToggleGroup
+            type="multiple"
+            value={riskFilter}
+            onValueChange={(v) => {
+              if (v.length > 0) setRiskFilter(v as RiskLevel[]);
+            }}
+            className="gap-2"
+          >
+            {RISK_OPTIONS.map((opt) => (
+              <ToggleGroupItem
+                key={opt.value}
+                value={opt.value}
+                aria-label={opt.label}
+                className={cn(
+                  "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
+                  opt.activeClass,
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
                 {opt.label}
-              </SelectItem>
+                <span className="ml-2 text-xs opacity-70">({riskCounts[opt.value]})</span>
+              </ToggleGroupItem>
             ))}
-          </SelectContent>
-        </Select>
+          </ToggleGroup>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-2">Queue Status</span>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}>
+            <SelectTrigger className="h-9 w-[200px] text-sm">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_FILTER_OPTIONS.map((opt) => {
+                const count =
+                  opt.value === "all" ? statusCounts.all : statusCounts[opt.value];
+                return (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="flex items-center justify-between w-full gap-3">
+                      <span>{opt.label}</span>
+                      <span className="text-xs text-muted-foreground">({count})</span>
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {!isDefaultFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 text-xs text-muted-foreground hover:text-foreground ml-auto"
+              onClick={clearFilters}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Clear filters
+            </Button>
+          )}
+        </div>
+
+        {/* Active filters summary chips */}
+        {!isDefaultFilters && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              Active:
+            </span>
+            {riskFilter.length < 3 &&
+              riskFilter.map((r) => (
+                <span
+                  key={r}
+                  className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-muted text-xs text-foreground border border-border"
+                >
+                  {RISK_LABEL[r]}
+                  <button
+                    type="button"
+                    aria-label={`Remove ${RISK_LABEL[r]} filter`}
+                    onClick={() => removeRiskChip(r)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            {statusFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-muted text-xs text-foreground border border-border">
+                {STATUS_LABEL[statusFilter]}
+                <button
+                  type="button"
+                  aria-label="Remove status filter"
+                  onClick={() => setStatusFilter("all")}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex h-[calc(100vh-11rem)]">
