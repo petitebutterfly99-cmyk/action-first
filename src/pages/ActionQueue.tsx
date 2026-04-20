@@ -7,6 +7,7 @@ import { AccountDetailPanel } from "@/components/AccountDetailPanel";
 import { OutreachModal } from "@/components/OutreachModal";
 import { OutcomeModal, OutreachOutcome, STATUS_TO_ACCOUNT_STATUS } from "@/components/OutcomeModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
+import { NextBestAccountModal } from "@/components/NextBestAccountModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -46,6 +47,7 @@ export default function ActionQueuePage() {
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
   const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
+  const [nextBestAccount, setNextBestAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -147,12 +149,23 @@ export default function ActionQueuePage() {
       .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
       .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
     if (candidate) {
-      setSelectedAccount(candidate);
-      toast({ title: "Next best account", description: `${candidate.name} is up next.` });
+      // Surface as Next Best Account flow so the CSM can confirm and stay in the loop.
+      setSelectedAccount(null);
+      setNextBestAccount(candidate);
     } else {
       setSelectedAccount(null);
       toast({ title: "Queue clear", description: "No more accounts need action right now." });
     }
+  };
+
+  const handleContinueNextBest = (account: Account) => {
+    setNextBestAccount(null);
+    setSelectedAccount(account);
+  };
+
+  const handleStopNextBest = () => {
+    setNextBestAccount(null);
+    toast({ title: "Stopped for now", description: "Pick up where you left off anytime." });
   };
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
@@ -179,6 +192,7 @@ export default function ActionQueuePage() {
   const handleMarkReviewed = (account: Account) => {
     updateAccount(account.id, { status: "reviewed" });
     toast({ title: "Marked as reviewed", description: `${account.name} marked as reviewed` });
+    advanceToNextBestAccount(account.id);
   };
 
   return (
@@ -311,6 +325,12 @@ export default function ActionQueuePage() {
         account={promptAccount}
         open={!!promptAccount}
         onClose={() => setPromptAccount(null)}
+      />
+      <NextBestAccountModal
+        account={nextBestAccount}
+        open={!!nextBestAccount}
+        onContinue={handleContinueNextBest}
+        onStop={handleStopNextBest}
       />
     </AppLayout>
   );
