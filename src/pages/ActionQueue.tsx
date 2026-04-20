@@ -80,6 +80,7 @@ export default function ActionQueuePage() {
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [nextBestAccount, setNextBestAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
+  const [statusFilter, setStatusFilter] = useState<"all" | AccountStatus>("all");
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
