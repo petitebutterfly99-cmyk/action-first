@@ -62,24 +62,39 @@ function RiskBadge({ risk }: { risk: RiskLevel }) {
   );
 }
 
-export function AccountCard({
-  account,
-  onSendOutreach,
-  onPromptInvite,
-  onMarkReviewed,
-  onSelect,
-  onSnooze,
-  selected,
-  onToggleSelected,
-}: AccountCardProps) {
+export const AccountCard = forwardRef<HTMLDivElement, AccountCardProps>(function AccountCard(
+  {
+    account,
+    onSendOutreach,
+    onPromptInvite,
+    onMarkReviewed,
+    onSelect,
+    onSnooze,
+    selected,
+    onToggleSelected,
+    highlight = false,
+    snoozeUntil,
+    followUpDate,
+  },
+  ref,
+) {
   const isContacted = account.status === "contacted";
   const isReviewed = account.status === "reviewed";
+  const isSnoozed = account.status === "snoozed";
+  const isFollowUp = account.status === "follow_up_needed";
+  // Reduce visual weight for any "completed" state, but keep visible.
+  const demoted = isContacted || isReviewed || isSnoozed;
+  const pill = STATUS_PILL[account.status];
 
   return (
     <div
-      className={`bg-card rounded-lg border shadow-sm hover:shadow-md transition-shadow ${
-        selected ? "ring-2 ring-primary border-primary" : ""
-      } ${isContacted || isReviewed ? "opacity-60" : ""}`}
+      ref={ref}
+      className={cn(
+        "bg-card rounded-lg border shadow-sm hover:shadow-md transition-all",
+        selected && "ring-2 ring-primary border-primary",
+        demoted && "opacity-70",
+        highlight && "ring-2 ring-primary border-primary animate-pulse",
+      )}
     >
       <div className="p-4">
         {/* Top row */}
@@ -100,11 +115,21 @@ export function AccountCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <RiskBadge risk={account.risk} />
-            {isContacted && (
-              <span className="text-xs text-primary font-medium">Contacted</span>
-            )}
-            {isReviewed && (
-              <span className="text-xs text-muted-foreground font-medium">Reviewed</span>
+            {pill && (
+              <span
+                className={cn(
+                  "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border",
+                  pill.className,
+                )}
+              >
+                {pill.label}
+                {isSnoozed && snoozeUntil && (
+                  <span className="ml-1 opacity-80">· until {snoozeUntil.toLocaleDateString()}</span>
+                )}
+                {isFollowUp && followUpDate && (
+                  <span className="ml-1 opacity-80">· {followUpDate.toLocaleDateString()}</span>
+                )}
+              </span>
             )}
           </div>
         </div>
@@ -192,6 +217,7 @@ export function AccountCard({
             variant="ghost"
             className="text-xs h-7"
             onClick={() => onSnooze(account)}
+            disabled={isSnoozed}
           >
             <Clock className="w-3 h-3 mr-1" />
             Snooze
@@ -206,4 +232,4 @@ export function AccountCard({
       </div>
     </div>
   );
-}
+});
