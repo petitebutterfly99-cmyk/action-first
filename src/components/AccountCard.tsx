@@ -168,8 +168,8 @@ export function AccountCard({
             className="text-xs h-7"
             onClick={() => onSnooze(account)}
           >
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Mark Reviewed
+            <Clock className="w-3 h-3 mr-1" />
+            Snooze
           </Button>
           <button
             onClick={() => onSelect(account)}
