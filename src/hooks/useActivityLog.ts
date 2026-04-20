@@ -3,6 +3,11 @@ import { activityStore, ActivityEntry } from "@/data/activityStore";
 
 export function useActivityLog(): ActivityEntry[] {
   const [entries, setEntries] = useState<ActivityEntry[]>(() => activityStore.list());
-  useEffect(() => activityStore.subscribe(setEntries), []);
+  useEffect(() => {
+    const unsub = activityStore.subscribe(setEntries);
+    return () => {
+      unsub();
+    };
+  }, []);
   return entries;
 }
