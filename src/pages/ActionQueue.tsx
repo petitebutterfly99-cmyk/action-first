@@ -464,17 +464,16 @@ export default function ActionQueuePage() {
   };
 
   const handlePromptInvite = (account: Account) => {
-    setPromptAccount(account);
-    try {
-      activityStore.log({
+    safeLog(
+      toast,
+      () => setPromptAccount(account),
+      {
         action: "Sent invite prompt",
         type: "prompt_invite",
         account: account.name,
         accountId: account.id,
-      });
-    } catch {
-      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
-    }
+      },
+    );
   };
 
   const REASON_LABELS: Record<string, string> = {
