@@ -387,6 +387,12 @@ export default function ActionQueuePage() {
         onContinue={handleContinueNextBest}
         onStop={handleStopNextBest}
       />
+      <SnoozeModal
+        account={snoozeAccount}
+        open={!!snoozeAccount}
+        onClose={() => setSnoozeAccount(null)}
+        onSnooze={handleSnooze}
+      />
     </AppLayout>
   );
 }
