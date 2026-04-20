@@ -77,9 +77,9 @@ export const activityStore = {
     return () => listeners.delete(listener);
   },
   /**
-   * Append an entry. Throws if persistence fails so the caller can show
-   * a non-blocking warning. The in-memory list is still updated so the UI
-   * reflects the action immediately.
+   * Append an entry. Throws if persistence fails. The in-memory list is only
+   * updated AFTER persistence succeeds, so subscribers never see a
+   * provisional entry that might disappear on retry.
    */
   log(input: {
     action: string;
@@ -99,9 +99,10 @@ export const activityStore = {
       timestamp: "Just now",
       timestampISO: new Date().toISOString(),
     };
-    entries = [entry, ...entries];
+    const next = [entry, ...entries];
+    persist(next); // may throw -> caller warns; entries unchanged
+    entries = next;
     emit();
-    persist(entries); // may throw -> caller warns
     return entry;
   },
 };

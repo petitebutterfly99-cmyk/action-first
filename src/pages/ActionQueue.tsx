@@ -15,6 +15,7 @@ import { SnoozeModal, SnoozeData } from "@/components/SnoozeModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { activityStore } from "@/data/activityStore";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -56,30 +57,54 @@ const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeC
 
 /**
  * Wrap an action so we always log to the activity store. Performs the action
- * first; only logs if the action succeeds. If logging itself throws, we surface
- * a non-blocking warning toast — the action itself is preserved.
+ * first; only writes the log if the action succeeds. If the log write fails,
+ * we surface a non-blocking warning toast with a "Retry log update" action.
+ * On successful retry, the warning is dismissed automatically.
  */
 function safeLog(
   toast: ReturnType<typeof useToast>["toast"],
   action: () => void,
   entry: Parameters<typeof activityStore.log>[0],
 ) {
-  try {
-    action();
-  } catch (e) {
-    // Action failed — do not log.
-    throw e;
-  }
-  try {
-    activityStore.log(entry);
-  } catch {
-    toast({
-      title: "Heads up",
-      description: "Action completed, but Activity Log could not be updated.",
-      variant: "destructive",
-    });
-  }
+  // 1. Perform the user-facing action. If it fails, do not log.
+  action();
+
+  // 2. Attempt log write. The store only commits on persist success, so a
+  //    failure here means no Activity Log entry exists yet.
+  const tryWrite = (): boolean => {
+    try {
+      activityStore.log(entry);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (tryWrite()) return;
+
+  // 3. Show a non-blocking warning with a retry affordance.
+  const t = toast({
+    title: "Heads up",
+    description: "Action completed, but Activity Log could not be updated.",
+    variant: "destructive",
+    duration: 10000,
+    action: (
+      <ToastAction
+        altText="Retry log update"
+        onClick={(e) => {
+          e.preventDefault();
+          if (tryWrite()) {
+            t.dismiss();
+            toast({ title: "Activity Log updated", duration: 2500 });
+          }
+        }}
+      >
+        Retry log update
+      </ToastAction>
+    ),
+  });
 }
+
 
 export default function ActionQueuePage() {
   const { toast } = useToast();
@@ -203,18 +228,18 @@ export default function ActionQueuePage() {
       ids.forEach((id) => (next[id] = date));
       return next;
     });
-    setAccounts((prev) =>
-      prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
-    );
-    try {
-      activityStore.log({
+    safeLog(
+      toast,
+      () =>
+        setAccounts((prev) =>
+          prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
+        ),
+      {
         action: `Assigned follow-up to ${ids.length} accounts for ${format(date, "PPP")}`,
         type: "save_outcome",
         account: targets.map((t) => t.name).join(", "),
-      });
-    } catch {
-      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
-    }
+      },
+    );
     setBulkFollowUpOpen(false);
     toast({
       title: "Follow-up assigned",
@@ -439,17 +464,16 @@ export default function ActionQueuePage() {
   };
 
   const handlePromptInvite = (account: Account) => {
-    setPromptAccount(account);
-    try {
-      activityStore.log({
+    safeLog(
+      toast,
+      () => setPromptAccount(account),
+      {
         action: "Sent invite prompt",
         type: "prompt_invite",
         account: account.name,
         accountId: account.id,
-      });
-    } catch {
-      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
-    }
+      },
+    );
   };
 
   const REASON_LABELS: Record<string, string> = {
