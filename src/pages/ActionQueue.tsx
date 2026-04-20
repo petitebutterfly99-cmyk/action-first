@@ -17,7 +17,16 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+
+const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "contacted", label: "Contacted" },
+  { value: "reviewed", label: "Reviewed" },
+  { value: "snoozed", label: "Snoozed" },
+  { value: "follow_up_needed", label: "Follow-up Needed" },
+];
 
 const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
   {
