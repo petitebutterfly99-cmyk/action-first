@@ -1,14 +1,76 @@
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { mockAccounts } from "@/data/mockAccounts";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
+// Source of truth for what's currently in the Action Queue. In a real app
+// this would consult the same store as ActionQueue. For the prototype we
+// expose a single helper so both screens stay in sync.
+function isAccountInQueue(id: string): boolean {
+  // Every mock account is currently in the queue, but keep the predicate so
+  // the "not in queue" UX path stays wired and demonstrable.
+  return mockAccounts.some((a) => a.id === id);
+}
 
 export default function AccountsPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [notInQueueAccount, setNotInQueueAccount] = useState<{ id: string; name: string } | null>(
+    null,
+  );
 
-  const handleViewInQueue = (id: string) => {
-    navigate(`/?focus=${id}`);
+  const navigateToQueue = (id: string) => {
+    try {
+      navigate(`/?focus=${encodeURIComponent(id)}`);
+    } catch {
+      const t = toast({
+        title: "Navigation failed",
+        description: "We couldn't open this account in the Action Queue.",
+        variant: "destructive",
+        duration: 10000,
+        action: (
+          <ToastAction
+            altText="Retry"
+            onClick={(e) => {
+              e.preventDefault();
+              t.dismiss();
+              navigateToQueue(id);
+            }}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Retry
+          </ToastAction>
+        ),
+      });
+    }
+  };
+
+  const handleViewInQueue = (id: string, name: string) => {
+    if (!isAccountInQueue(id)) {
+      setNotInQueueAccount({ id, name });
+      return;
+    }
+    navigateToQueue(id);
+  };
+
+  const handleViewAllInQueue = () => {
+    setNotInQueueAccount(null);
+    // Clear all filters by passing a hint the queue can read.
+    navigate(`/?reset=1`);
   };
 
   return (
@@ -37,20 +99,26 @@ export default function AccountsPage() {
                 <td className="py-2.5 text-muted-foreground">{a.plan}</td>
                 <td className="py-2.5 text-muted-foreground">${(a.arr / 1000).toFixed(0)}k</td>
                 <td className="py-2.5">{a.daysSinceSignup}</td>
-                <td className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}>{a.invitesSent}</td>
+                <td className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}>
+                  {a.invitesSent}
+                </td>
                 <td className="py-2.5">{a.activeUsers}</td>
                 <td className="py-2.5">
-                  <span className={`text-xs ${a.risk === "high" ? "text-risk-high" : a.risk === "medium" ? "text-risk-medium" : "text-risk-low"}`}>
+                  <span
+                    className={`text-xs ${a.risk === "high" ? "text-risk-high" : a.risk === "medium" ? "text-risk-medium" : "text-risk-low"}`}
+                  >
                     {a.risk}
                   </span>
                 </td>
-                <td className="py-2.5 capitalize text-muted-foreground">{a.status.replace(/_/g, " ")}</td>
+                <td className="py-2.5 capitalize text-muted-foreground">
+                  {a.status.replace(/_/g, " ")}
+                </td>
                 <td className="py-2.5 text-right">
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-7 text-xs text-primary hover:text-primary"
-                    onClick={() => handleViewInQueue(a.id)}
+                    onClick={() => handleViewInQueue(a.id, a.name)}
                   >
                     View in Action Queue
                     <ArrowUpRight className="w-3 h-3 ml-1" />
@@ -61,6 +129,30 @@ export default function AccountsPage() {
           </tbody>
         </table>
       </div>
+
+      <AlertDialog
+        open={!!notInQueueAccount}
+        onOpenChange={(o) => !o && setNotInQueueAccount(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base">
+              This account is not currently in the Action Queue.
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              {notInQueueAccount?.name
+                ? `${notInQueueAccount.name} may not match the current risk or status criteria.`
+                : "It may not match the current risk or status criteria."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-xs h-8">Stay on Account</AlertDialogCancel>
+            <AlertDialogAction className="text-xs h-8" onClick={handleViewAllInQueue}>
+              View all accounts in queue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
