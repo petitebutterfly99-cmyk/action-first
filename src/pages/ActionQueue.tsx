@@ -506,7 +506,7 @@ export default function ActionQueuePage() {
     }
     safeLog(
       toast,
-      () => updateAccount(account.id, { status: newStatus }),
+      () => updateAccountWithFilterAwareness(account.id, { status: newStatus }, account.name),
       {
         action: `Saved outcome: ${outcome.status.replace("_", " ")}`,
         type: "save_outcome",
