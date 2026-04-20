@@ -18,9 +18,11 @@ type SendState = "idle" | "sending" | "error";
 const FALLBACK_PLACEHOLDER =
   "Write a short outreach note to help this customer invite a teammate";
 
-// Simulated generator — fails ~15% of the time so the failure path is real.
+// Simulated generator — variable latency + occasional failures so timeout/fallback paths are real.
 function generateSuggestedMessage(account: Account): Promise<string> {
   return new Promise((resolve, reject) => {
+    // Random latency 300ms–4500ms so the 2s timeout is exercised regularly.
+    const latency = 300 + Math.random() * 4200;
     setTimeout(() => {
       if (Math.random() < 0.15) {
         reject(new Error("generation_failed"));
@@ -30,9 +32,11 @@ function generateSuggestedMessage(account: Account): Promise<string> {
       resolve(
         `Hey ${first} — most teams see value once they invite a teammate. Want help getting your team set up?`,
       );
-    }, 350);
+    }, latency);
   });
 }
+
+const GENERATION_TIMEOUT_MS = 2000;
 
 // Simulated send — fails ~30% of the time so retry/copy paths can be exercised.
 function performSend(): Promise<void> {
