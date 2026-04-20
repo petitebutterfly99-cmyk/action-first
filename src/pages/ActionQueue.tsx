@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { CalendarIcon, MessageCircle, CheckCircle, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
@@ -8,6 +10,9 @@ import { PromptInviteModal } from "@/components/PromptInviteModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
 const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
