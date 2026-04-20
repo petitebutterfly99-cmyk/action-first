@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
 import { OutreachModal } from "@/components/OutreachModal";
+import { OutcomeModal, OutreachOutcome, STATUS_TO_ACCOUNT_STATUS } from "@/components/OutcomeModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
@@ -38,8 +39,10 @@ export default function ActionQueuePage() {
   const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
+  const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
+  const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
 
   const riskCounts = useMemo(
     () => ({
@@ -72,9 +75,46 @@ export default function ActionQueuePage() {
   };
 
   const handleSendOutreach = (account: Account, _message: string) => {
-    updateAccount(account.id, { status: "contacted" });
     setOutreachAccount(null);
     toast({ title: "Outreach sent", description: `Message sent to ${account.contactName} at ${account.name}` });
+    // Immediately chain into outcome capture — keep CSM in the workflow.
+    setOutcomeAccount(account);
+  };
+
+  const advanceToNextBestAccount = (justHandledId: string) => {
+    // Find the highest-priority remaining account that still needs action.
+    const riskOrder = { high: 0, medium: 1, low: 2 };
+    const candidate = [...accounts]
+      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
+      .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
+    if (candidate) {
+      setSelectedAccount(candidate);
+      toast({ title: "Next best account", description: `${candidate.name} is up next.` });
+    } else {
+      setSelectedAccount(null);
+      toast({ title: "Queue clear", description: "No more accounts need action right now." });
+    }
+  };
+
+  const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
+    setOutcomes((prev) => ({ ...prev, [account.id]: outcome }));
+    const mapped = STATUS_TO_ACCOUNT_STATUS[outcome.status];
+    if (mapped) updateAccount(account.id, { status: mapped });
+    setOutcomeAccount(null);
+    toast({
+      title: "Outcome saved",
+      description: outcome.followUpDate
+        ? `Follow-up set for ${outcome.followUpDate.toLocaleDateString()}`
+        : "Outcome captured.",
+    });
+    advanceToNextBestAccount(account.id);
+  };
+
+  const handleSkipOutcome = (account: Account) => {
+    // Even on skip, the outreach was sent — reflect that on the account.
+    updateAccount(account.id, { status: "contacted" });
+    setOutcomeAccount(null);
+    advanceToNextBestAccount(account.id);
   };
 
   const handleMarkReviewed = (account: Account) => {
@@ -154,6 +194,13 @@ export default function ActionQueuePage() {
         open={!!outreachAccount}
         onClose={() => setOutreachAccount(null)}
         onSend={handleSendOutreach}
+      />
+      <OutcomeModal
+        account={outcomeAccount}
+        open={!!outcomeAccount}
+        onClose={() => setOutcomeAccount(null)}
+        onSave={handleSaveOutcome}
+        onSkip={handleSkipOutcome}
       />
       <PromptInviteModal
         account={promptAccount}
