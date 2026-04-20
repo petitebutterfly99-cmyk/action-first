@@ -1,8 +1,10 @@
-import { Account, RiskLevel } from "@/data/mockAccounts";
+import { forwardRef } from "react";
+import { Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { AlertTriangle, MessageCircle, UserPlus, CheckCircle, ChevronRight, Quote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface AccountCardProps {
   account: Account;
@@ -13,7 +15,30 @@ interface AccountCardProps {
   onSnooze: (account: Account) => void;
   selected: boolean;
   onToggleSelected: (id: string, checked: boolean) => void;
+  highlight?: boolean;
+  snoozeUntil?: Date;
+  followUpDate?: Date;
 }
+
+const STATUS_PILL: Record<AccountStatus, { label: string; className: string } | null> = {
+  needs_action: null,
+  contacted: {
+    label: "Contacted",
+    className: "bg-primary/10 text-primary border-primary/20",
+  },
+  reviewed: {
+    label: "Reviewed",
+    className: "bg-muted text-muted-foreground border-border",
+  },
+  snoozed: {
+    label: "Snoozed",
+    className: "bg-badge-warning-bg text-badge-warning-fg border-[hsl(var(--risk-medium))]/30",
+  },
+  follow_up_needed: {
+    label: "Follow-up needed",
+    className: "bg-badge-urgent-bg text-badge-urgent-fg border-[hsl(var(--risk-high))]/30",
+  },
+};
 
 function RiskBadge({ risk }: { risk: RiskLevel }) {
   if (risk === "high") {
