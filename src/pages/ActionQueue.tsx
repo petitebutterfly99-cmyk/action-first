@@ -326,6 +326,12 @@ export default function ActionQueuePage() {
         open={!!promptAccount}
         onClose={() => setPromptAccount(null)}
       />
+      <NextBestAccountModal
+        account={nextBestAccount}
+        open={!!nextBestAccount}
+        onContinue={handleContinueNextBest}
+        onStop={handleStopNextBest}
+      />
     </AppLayout>
   );
 }
