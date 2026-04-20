@@ -286,12 +286,30 @@ export default function ActionQueuePage() {
     }
   };
 
-  // Deep-link focus from /accounts → /?focus=<id>
+  // Deep-link from /accounts → /?focus=<id> or /?reset=1
   useEffect(() => {
+    // Wait until the queue has finished loading so we don't falsely report
+    // "not in queue" before data is ready.
+    if (isLoading || loadError) return;
+
+    const reset = searchParams.get("reset");
     const focusId = searchParams.get("focus");
+
+    if (reset) {
+      setRiskFilter(["high", "medium", "low"]);
+      setStatusFilter("all");
+      const next = new URLSearchParams(searchParams);
+      next.delete("reset");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+
     if (!focusId) return;
+
     const target = accounts.find((a) => a.id === focusId);
     if (!target) {
+      // Should be rare — Accounts screen pre-checks. Surfaces only if the
+      // queue mutated between click and arrival.
       toast({
         title: "Not in Action Queue",
         description: "This account is not currently in the Action Queue.",
@@ -301,12 +319,14 @@ export default function ActionQueuePage() {
       setSearchParams(next, { replace: true });
       return;
     }
-    // Make sure the row is visible regardless of current filter.
+    // Reveal the row regardless of risk OR status filters.
     if (!riskFilter.includes(target.risk)) {
       setRiskFilter((prev) => Array.from(new Set([...prev, target.risk])) as RiskLevel[]);
     }
+    if (statusFilter !== "all" && statusFilter !== target.status) {
+      setStatusFilter("all");
+    }
     setHighlightId(focusId);
-    // Scroll once the row is rendered.
     requestAnimationFrame(() => {
       const el = cardRefs.current[focusId];
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -317,7 +337,7 @@ export default function ActionQueuePage() {
     setSearchParams(next, { replace: true });
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams.get("focus")]);
+  }, [searchParams.get("focus"), searchParams.get("reset"), isLoading, loadError]);
 
   const handleSendOutreach = (account: Account, message: string) => {
     setOutreachAccount(null);
