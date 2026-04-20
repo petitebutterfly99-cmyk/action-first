@@ -83,7 +83,9 @@ function safeLog(
 export default function ActionQueuePage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
   const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
@@ -99,6 +101,39 @@ export default function ActionQueuePage() {
   const [snoozes, setSnoozes] = useState<Record<string, SnoozeData>>({});
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Simulated load — keeps loading + failure paths real for UX states.
+  const loadQueue = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    const t = setTimeout(() => {
+      try {
+        setAccounts(mockAccounts);
+        setIsLoading(false);
+      } catch {
+        setLoadError("We ran into a problem loading this queue.");
+        setIsLoading(false);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  };
+
+  useEffect(() => {
+    return loadQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resetHandledItems = () => {
+    setAccounts((prev) => prev.map((a) => ({ ...a, status: "needs_action" as AccountStatus })));
+    setSnoozes({});
+    setFollowUpDates({});
+    toast({ title: "Handled items reset", description: "All accounts moved back to Needs Action." });
+  };
+
+  const resetFilters = () => {
+    setRiskFilter(["high", "medium", "low"]);
+    setStatusFilter("all");
+  };
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
