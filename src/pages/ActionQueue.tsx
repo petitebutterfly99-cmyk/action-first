@@ -84,7 +84,36 @@ export default function ActionQueuePage() {
 
   return (
     <AppLayout title="My Accounts Requiring Attention" subtitle="Accounts at risk due to lack of early activation">
-      <div className="flex h-[calc(100vh-7rem)]">
+      {/* Filter bar */}
+      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Risk Level</span>
+        <ToggleGroup
+          type="multiple"
+          value={riskFilter}
+          onValueChange={(v) => {
+            if (v.length > 0) setRiskFilter(v as RiskLevel[]);
+          }}
+          className="gap-2"
+        >
+          {RISK_OPTIONS.map((opt) => (
+            <ToggleGroupItem
+              key={opt.value}
+              value={opt.value}
+              aria-label={opt.label}
+              className={cn(
+                "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
+                opt.activeClass,
+              )}
+            >
+              <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
+              {opt.label}
+              <span className="ml-2 text-xs opacity-70">({riskCounts[opt.value]})</span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      <div className="flex h-[calc(100vh-11rem)]">
         {/* Main list */}
         <div className="flex-1 overflow-y-auto pr-2">
           {/* Summary bar */}
