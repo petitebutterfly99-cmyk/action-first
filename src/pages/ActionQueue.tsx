@@ -134,12 +134,15 @@ export default function ActionQueuePage() {
     const statusOrder: Record<AccountStatus, number> = { needs_action: 0, contacted: 1, reviewed: 2 };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
+      .filter((a) => !isSnoozed(a.id))
       .sort((a, b) => {
         const sd = statusOrder[a.status] - statusOrder[b.status];
         if (sd !== 0) return sd;
         return riskOrder[a.risk] - riskOrder[b.risk];
       });
-  }, [accounts, riskFilter]);
+  }, [accounts, riskFilter, snoozes, now]);
+
+  const snoozedCount = Object.keys(snoozes).filter((id) => isSnoozed(id)).length;
 
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
