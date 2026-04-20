@@ -192,12 +192,13 @@ export default function ActionQueuePage() {
     };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
+      .filter((a) => statusFilter === "all" || a.status === statusFilter)
       .sort((a, b) => {
         const sd = statusOrder[a.status] - statusOrder[b.status];
         if (sd !== 0) return sd;
         return riskOrder[a.risk] - riskOrder[b.risk];
       });
-  }, [accounts, riskFilter]);
+  }, [accounts, riskFilter, statusFilter]);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
