@@ -1,6 +1,21 @@
 import { Account } from "@/data/mockAccounts";
-import { X, Calendar, Users, Zap, MousePointer } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  Zap,
+  MousePointer,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  LogIn,
+  ListChecks,
+  UserPlus,
+  Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface AccountDetailPanelProps {
   account: Account;
@@ -8,87 +23,233 @@ interface AccountDetailPanelProps {
   onSendOutreach: (account: Account) => void;
 }
 
+type TimelineState = "done" | "missing" | "warning";
+
+interface TimelineEvent {
+  icon: typeof LogIn;
+  label: string;
+  detail: string;
+  day: string;
+  state: TimelineState;
+}
+
+function buildTimeline(account: Account): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+
+  events.push({
+    icon: LogIn,
+    label: "Signed up",
+    detail: account.signupDate,
+    day: "Day 0",
+    state: "done",
+  });
+
+  events.push({
+    icon: Clock,
+    label: "First session",
+    detail: "Logged in shortly after signup",
+    day: "Day 0",
+    state: "done",
+  });
+
+  events.push({
+    icon: ListChecks,
+    label: account.firstTaskCreated ? "First task created" : "No tasks created",
+    detail: account.firstTaskCreated
+      ? `${account.minutesToFirstTask} min after signup`
+      : "User has not created any tasks yet",
+    day: account.firstTaskCreated ? "Day 0" : "—",
+    state: account.firstTaskCreated ? "done" : "missing",
+  });
+
+  events.push({
+    icon: UserPlus,
+    label: account.invitesSent > 0 ? "Teammate invited" : "No teammates invited",
+    detail:
+      account.invitesSent > 0
+        ? `${account.invitesSent} invite${account.invitesSent > 1 ? "s" : ""} sent · ${account.activeUsers} active user${account.activeUsers > 1 ? "s" : ""}`
+        : "Solo workspace — strongest churn signal",
+    day: account.invitesSent > 0 ? `Day 1` : "—",
+    state: account.invitesSent > 0 ? "done" : "missing",
+  });
+
+  // Activity gap detection
+  if (account.lastActivityDays >= 2) {
+    const gapStart = Math.max(1, account.daysSinceSignup - account.lastActivityDays);
+    events.push({
+      icon: AlertTriangle,
+      label: "Activity gap detected",
+      detail: `No activity between Day ${gapStart}–${account.daysSinceSignup}`,
+      day: `Day ${gapStart}+`,
+      state: "warning",
+    });
+  } else {
+    events.push({
+      icon: MousePointer,
+      label: "Recent activity",
+      detail: account.lastActivityDays === 0 ? "Active today" : `Last seen ${account.lastActivityDays}d ago`,
+      day: `Day ${account.daysSinceSignup}`,
+      state: "done",
+    });
+  }
+
+  return events;
+}
+
+function buildInsights(account: Account): string[] {
+  const insights: string[] = [];
+  if (account.lastActivityDays >= 2) {
+    const gapStart = Math.max(1, account.daysSinceSignup - account.lastActivityDays);
+    insights.push(`No activity between Day ${gapStart}–${account.daysSinceSignup}`);
+  }
+  if (account.invitesSent === 0) insights.push("No teammates invited yet");
+  if (!account.firstTaskCreated) insights.push("No tasks created");
+  return insights;
+}
+
+const STATE_STYLES: Record<TimelineState, { dot: string; icon: string; iconBg: string; text: string }> = {
+  done: {
+    dot: "bg-[hsl(var(--risk-low))]",
+    icon: "text-[hsl(var(--risk-low))]",
+    iconBg: "bg-[hsl(var(--badge-success-bg))]",
+    text: "text-muted-foreground",
+  },
+  missing: {
+    dot: "bg-[hsl(var(--risk-high))]",
+    icon: "text-[hsl(var(--risk-high))]",
+    iconBg: "bg-[hsl(var(--badge-urgent-bg))]",
+    text: "text-[hsl(var(--risk-high))] font-medium",
+  },
+  warning: {
+    dot: "bg-[hsl(var(--risk-medium))]",
+    icon: "text-[hsl(var(--risk-medium))]",
+    iconBg: "bg-[hsl(var(--badge-warning-bg))]",
+    text: "text-[hsl(var(--risk-medium))] font-medium",
+  },
+};
+
 export function AccountDetailPanel({ account, onClose, onSendOutreach }: AccountDetailPanelProps) {
-  const timelineEvents = [
-    { label: "Signed up", date: account.signupDate, done: true },
-    { label: "First task created", date: account.firstTaskCreated ? `${account.minutesToFirstTask} min after signup` : "Never", done: account.firstTaskCreated },
-    { label: "Teammate invited", date: account.invitesSent > 0 ? `${account.invitesSent} invite(s)` : "Never", done: account.invitesSent > 0 },
-  ];
+  const events = buildTimeline(account);
+  const insights = buildInsights(account);
 
   return (
-    <div className="w-96 border-l bg-card h-full overflow-y-auto shrink-0">
-      <div className="sticky top-0 bg-card z-10 flex items-center justify-between px-5 py-4 border-b">
-        <h2 className="font-semibold text-sm text-foreground">{account.name}</h2>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+        <SheetHeader className="px-5 py-4 border-b space-y-1 text-left">
+          <SheetTitle className="text-sm font-semibold">{account.name}</SheetTitle>
+          <SheetDescription className="text-xs">
+            {account.contactName} · {account.plan} · ${(account.arr / 1000).toFixed(0)}k ARR
+          </SheetDescription>
+        </SheetHeader>
 
-      <div className="p-5 space-y-6">
-        {/* Key stats */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { icon: Calendar, label: "Days since signup", value: `${account.daysSinceSignup}` },
-            { icon: Users, label: "Active users", value: `${account.activeUsers}` },
-            { icon: Zap, label: "Invites sent", value: `${account.invitesSent}` },
-            { icon: MousePointer, label: "Last activity", value: account.lastActivityDays === 0 ? "Today" : `${account.lastActivityDays}d ago` },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-muted/50 rounded-md p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <stat.icon className="w-3 h-3 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{stat.label}</span>
-              </div>
-              <span className="text-sm font-semibold text-foreground">{stat.value}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Timeline */}
-        <div>
-          <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Timeline</h3>
-          <div className="space-y-3">
-            {timelineEvents.map((event, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${event.done ? "bg-risk-low" : "bg-risk-high"}`} />
-                <div>
-                  <div className="text-sm text-foreground">{event.label}</div>
-                  <div className={`text-xs ${event.done ? "text-muted-foreground" : "text-risk-high font-medium"}`}>{event.date}</div>
+        <ScrollArea className="flex-1">
+          <div className="p-5 space-y-6">
+            {/* Summary stats */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { icon: Calendar, label: "Days since signup", value: `${account.daysSinceSignup}` },
+                { icon: Zap, label: "Invites", value: `${account.invitesSent}` },
+                { icon: Users, label: "Active users", value: `${account.activeUsers}` },
+              ].map((stat) => (
+                <div key={stat.label} className="bg-muted/50 rounded-md p-3">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <stat.icon className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider truncate">
+                      {stat.label}
+                    </span>
+                  </div>
+                  <span className="text-base font-semibold text-foreground">{stat.value}</span>
                 </div>
+              ))}
+            </div>
+
+            {/* Highlighted insights */}
+            {insights.length > 0 && (
+              <div className="rounded-md border border-[hsl(var(--risk-high))]/30 bg-[hsl(var(--badge-urgent-bg))]/40 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[hsl(var(--risk-high))]" />
+                  <span className="text-xs font-semibold text-foreground">Why this account is at risk</span>
+                </div>
+                <ul className="space-y-1">
+                  {insights.map((insight) => (
+                    <li key={insight} className="flex items-start gap-2 text-xs text-foreground">
+                      <XCircle className="w-3 h-3 text-[hsl(var(--risk-high))] mt-0.5 shrink-0" />
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
+            )}
+
+            {/* Vertical timeline */}
+            <div>
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
+                Account Timeline
+              </h3>
+              <div className="relative">
+                {/* vertical rail */}
+                <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" aria-hidden />
+                <ol className="space-y-4">
+                  {events.map((event, i) => {
+                    const styles = STATE_STYLES[event.state];
+                    const Icon = event.icon;
+                    return (
+                      <li key={i} className="relative flex items-start gap-3">
+                        <div
+                          className={cn(
+                            "relative z-10 w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                            styles.iconBg,
+                          )}
+                        >
+                          <Icon className={cn("w-4 h-4", styles.icon)} />
+                        </div>
+                        <div className="flex-1 pt-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium text-foreground truncate">{event.label}</div>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{event.day}</span>
+                          </div>
+                          <div className={cn("text-xs mt-0.5", styles.text)}>{event.detail}</div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </div>
+
+            {/* Benchmark insight */}
+            <div className="bg-muted/50 rounded-md p-3 border border-border">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {account.firstTaskCreated
+                  ? "Users who create a task within 10 minutes retain 2x more."
+                  : "This user hasn't created any tasks. Users who don't activate within 5 days churn at 82%."}
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                Only 12% of users invite a teammate in the first 3 days. Accounts with invites retain at 68% vs 22% without.
+              </p>
+            </div>
+
+            {/* Quote */}
+            {account.quote && (
+              <div className="border-l-2 border-primary/30 pl-3">
+                <p className="text-xs italic text-muted-foreground">"{account.quote.text}"</p>
+                <p className="text-[10px] text-muted-foreground mt-1">— {account.quote.source}</p>
+              </div>
+            )}
           </div>
-        </div>
+        </ScrollArea>
 
-        {/* Insight */}
-        <div className="bg-muted/50 rounded-md p-3 border border-border">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {account.firstTaskCreated
-              ? "Users who create a task within 10 minutes retain 2x more."
-              : "This user hasn't created any tasks. Users who don't activate within 5 days churn at 82%."}
-          </p>
-          <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-            Only 12% of users invite a teammate in the first 3 days. Accounts with invites retain at 68% vs 22% without.
-          </p>
-        </div>
-
-        {/* Quote */}
-        {account.quote && (
-          <div className="border-l-2 border-primary/30 pl-3">
-            <p className="text-xs italic text-muted-foreground">"{account.quote.text}"</p>
-            <p className="text-[10px] text-muted-foreground mt-1">— {account.quote.source}</p>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="space-y-2">
+        {/* Sticky action footer */}
+        <div className="border-t bg-card px-5 py-3 space-y-2">
           <Button className="w-full text-xs" size="sm" onClick={() => onSendOutreach(account)}>
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
             Send Outreach
           </Button>
-          <Button className="w-full text-xs" size="sm" variant="outline">
-            View Full Profile
+          <Button className="w-full text-xs" size="sm" variant="ghost" onClick={onClose}>
+            Back to Action Queue
           </Button>
         </div>
-      </div>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
