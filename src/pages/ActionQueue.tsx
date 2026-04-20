@@ -54,6 +54,20 @@ export default function ActionQueuePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
   const [bulkFollowUpOpen, setBulkFollowUpOpen] = useState(false);
+  const [snoozeAccount, setSnoozeAccount] = useState<Account | null>(null);
+  const [snoozes, setSnoozes] = useState<Record<string, SnoozeData>>({});
+  const [now, setNow] = useState(() => Date.now());
+
+  // Tick every minute so snoozed accounts auto-reappear when their time is up.
+  useMemo(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const isSnoozed = (id: string) => {
+    const s = snoozes[id];
+    return !!s && s.until.getTime() > now;
+  };
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
