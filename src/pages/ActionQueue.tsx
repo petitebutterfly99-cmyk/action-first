@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { CalendarIcon, MessageCircle, CheckCircle, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
@@ -8,6 +10,9 @@ import { PromptInviteModal } from "@/components/PromptInviteModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
 const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
@@ -43,6 +48,60 @@ export default function ActionQueuePage() {
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
   const [outcomes, setOutcomes] = useState<Record<string, OutreachOutcome>>({});
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [followUpDates, setFollowUpDates] = useState<Record<string, Date>>({});
+  const [bulkFollowUpOpen, setBulkFollowUpOpen] = useState(false);
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const applyBulk = (updater: (a: Account) => Partial<Account> | null) => {
+    setAccounts((prev) =>
+      prev.map((a) => {
+        if (!selectedIds.has(a.id)) return a;
+        const u = updater(a);
+        return u ? { ...a, ...u } : a;
+      }),
+    );
+  };
+
+  const handleBulkSendOutreach = () => {
+    const count = selectedIds.size;
+    applyBulk(() => ({ status: "contacted" as AccountStatus }));
+    toast({ title: "Outreach sent", description: `Sent to ${count} account${count > 1 ? "s" : ""}.` });
+    clearSelection();
+  };
+
+  const handleBulkMarkReviewed = () => {
+    const count = selectedIds.size;
+    applyBulk(() => ({ status: "reviewed" as AccountStatus }));
+    toast({ title: "Marked as reviewed", description: `${count} account${count > 1 ? "s" : ""} marked as reviewed.` });
+    clearSelection();
+  };
+
+  const handleBulkAssignFollowUp = (date: Date | undefined) => {
+    if (!date) return;
+    const ids = Array.from(selectedIds);
+    setFollowUpDates((prev) => {
+      const next = { ...prev };
+      ids.forEach((id) => (next[id] = date));
+      return next;
+    });
+    setBulkFollowUpOpen(false);
+    toast({
+      title: "Follow-up assigned",
+      description: `${ids.length} account${ids.length > 1 ? "s" : ""} scheduled for ${format(date, "PPP")}.`,
+    });
+    clearSelection();
+  };
 
   const riskCounts = useMemo(
     () => ({
@@ -165,7 +224,7 @@ export default function ActionQueuePage() {
             <span>{accounts.filter((a) => a.status === "contacted").length} contacted today</span>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 pb-24">
             {sortedAccounts.map((account) => (
               <AccountCard
                 key={account.id}
@@ -174,20 +233,66 @@ export default function ActionQueuePage() {
                 onPromptInvite={setPromptAccount}
                 onMarkReviewed={handleMarkReviewed}
                 onSelect={setSelectedAccount}
+                selected={selectedIds.has(account.id)}
+                onToggleSelected={toggleSelected}
               />
             ))}
           </div>
         </div>
-
-        {/* Detail panel */}
-        {selectedAccount && (
-          <AccountDetailPanel
-            account={selectedAccount}
-            onClose={() => setSelectedAccount(null)}
-            onSendOutreach={setOutreachAccount}
-          />
-        )}
       </div>
+
+      {/* Sticky bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full pl-4 pr-2 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-sm font-medium text-foreground whitespace-nowrap">
+            {selectedIds.size} selected
+          </span>
+          <div className="h-5 w-px bg-border" />
+          <Button size="sm" variant="default" className="h-8 text-xs" onClick={handleBulkSendOutreach}>
+            <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
+            Send Outreach
+          </Button>
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleBulkMarkReviewed}>
+            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+            Mark as Reviewed
+          </Button>
+          <Popover open={bulkFollowUpOpen} onOpenChange={setBulkFollowUpOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 text-xs">
+                <CalendarIcon className="w-3.5 h-3.5 mr-1.5" />
+                Assign Follow-up
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center" side="top">
+              <Calendar
+                mode="single"
+                onSelect={handleBulkAssignFollowUp}
+                disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 rounded-full"
+            onClick={clearSelection}
+            aria-label="Clear selection"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+
+      {/* Detail panel */}
+      {selectedAccount && (
+        <AccountDetailPanel
+          account={selectedAccount}
+          onClose={() => setSelectedAccount(null)}
+          onSendOutreach={setOutreachAccount}
+        />
+      )}
 
       <OutreachModal
         account={outreachAccount}
