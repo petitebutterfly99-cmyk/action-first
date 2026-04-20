@@ -162,6 +162,15 @@ export function AccountCard({
             <CheckCircle className="w-3 h-3 mr-1" />
             Mark Reviewed
           </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-xs h-7"
+            onClick={() => onSnooze(account)}
+          >
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Mark Reviewed
+          </Button>
           <button
             onClick={() => onSelect(account)}
             className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
