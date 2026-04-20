@@ -285,15 +285,14 @@ export default function ActionQueuePage() {
         </div>
       )}
 
-        {/* Detail panel */}
-        {selectedAccount && (
-          <AccountDetailPanel
-            account={selectedAccount}
-            onClose={() => setSelectedAccount(null)}
-            onSendOutreach={setOutreachAccount}
-          />
-        )}
-      </div>
+      {/* Detail panel */}
+      {selectedAccount && (
+        <AccountDetailPanel
+          account={selectedAccount}
+          onClose={() => setSelectedAccount(null)}
+          onSendOutreach={setOutreachAccount}
+        />
+      )}
 
       <OutreachModal
         account={outreachAccount}
