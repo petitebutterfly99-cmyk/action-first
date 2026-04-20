@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { CalendarIcon, MessageCircle, CheckCircle, X, RefreshCw, AlertCircle, CheckCheck, Inbox, FilterX } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
