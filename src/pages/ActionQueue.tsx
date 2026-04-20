@@ -192,6 +192,7 @@ export default function ActionQueuePage() {
   const handleMarkReviewed = (account: Account) => {
     updateAccount(account.id, { status: "reviewed" });
     toast({ title: "Marked as reviewed", description: `${account.name} marked as reviewed` });
+    advanceToNextBestAccount(account.id);
   };
 
   return (
