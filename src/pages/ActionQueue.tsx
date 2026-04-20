@@ -7,6 +7,7 @@ import { AccountDetailPanel } from "@/components/AccountDetailPanel";
 import { OutreachModal } from "@/components/OutreachModal";
 import { OutcomeModal, OutreachOutcome, STATUS_TO_ACCOUNT_STATUS } from "@/components/OutcomeModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
+import { NextBestAccountModal } from "@/components/NextBestAccountModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
