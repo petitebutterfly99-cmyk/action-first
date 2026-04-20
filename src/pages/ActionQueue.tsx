@@ -213,6 +213,36 @@ export default function ActionQueuePage() {
     advanceToNextBestAccount(account.id);
   };
 
+  const REASON_LABELS: Record<string, string> = {
+    already_contacted: "Already contacted",
+    not_relevant: "Not relevant",
+    waiting_on_customer: "Waiting on customer",
+  };
+
+  const DURATION_LABELS: Record<string, string> = {
+    "2_days": "2 days",
+    "1_week": "1 week",
+    "until_renewal": "renewal",
+  };
+
+  const handleSnooze = (account: Account, data: SnoozeData) => {
+    setSnoozes((prev) => ({ ...prev, [account.id]: data }));
+    setSnoozeAccount(null);
+    // Clean up any selection state and close detail if open.
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(account.id);
+      return next;
+    });
+    if (selectedAccount?.id === account.id) setSelectedAccount(null);
+    toast({
+      title: `Snoozed for ${DURATION_LABELS[data.duration]}`,
+      description: data.reason
+        ? `${account.name} · ${REASON_LABELS[data.reason]}`
+        : `${account.name} hidden from queue.`,
+    });
+  };
+
   return (
     <AppLayout title="My Accounts Requiring Attention" subtitle="Accounts at risk due to lack of early activation">
       {/* Filter bar */}
