@@ -1,6 +1,16 @@
 import { forwardRef } from "react";
 import { Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
-import { AlertTriangle, MessageCircle, UserPlus, CheckCircle, ChevronRight, Quote, Clock } from "lucide-react";
+import {
+  AlertTriangle,
+  MessageCircle,
+  UserPlus,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  PlayCircle,
+  RotateCcw,
+  ArrowUpRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -24,7 +34,7 @@ const STATUS_PILL: Record<AccountStatus, { label: string; className: string } | 
   needs_action: null,
   contacted: {
     label: "Contacted",
-    className: "bg-primary/10 text-primary border-primary/20",
+    className: "bg-muted text-muted-foreground border-border",
   },
   reviewed: {
     label: "Reviewed",
@@ -32,34 +42,44 @@ const STATUS_PILL: Record<AccountStatus, { label: string; className: string } | 
   },
   snoozed: {
     label: "Snoozed",
-    className: "bg-badge-warning-bg text-badge-warning-fg border-[hsl(var(--risk-medium))]/30",
+    className: "bg-muted text-muted-foreground border-border",
   },
   follow_up_needed: {
-    label: "Follow-up needed",
-    className: "bg-badge-urgent-bg text-badge-urgent-fg border-[hsl(var(--risk-high))]/30",
+    label: "Follow-up Needed",
+    className: "bg-primary/10 text-primary border-primary/20",
   },
 };
 
 function RiskBadge({ risk }: { risk: RiskLevel }) {
   if (risk === "high") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-badge-urgent-bg text-badge-urgent-fg">
-        🔴 High Risk
+      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded bg-badge-urgent-bg text-badge-urgent-fg border border-[hsl(var(--risk-high))]/30">
+        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--risk-high))]" />
+        High Risk
       </span>
     );
   }
   if (risk === "medium") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-badge-warning-bg text-badge-warning-fg">
-        🟡 Medium
+      <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded bg-badge-warning-bg text-badge-warning-fg border border-[hsl(var(--risk-medium))]/30">
+        <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--risk-medium))]" />
+        Medium
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-badge-success-bg text-badge-success-fg">
-      🟢 Healthy
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide px-2 py-0.5 rounded bg-badge-success-bg text-badge-success-fg border border-[hsl(var(--risk-low))]/20">
+      <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--risk-low))]" />
+      Healthy
     </span>
   );
+}
+
+interface PrimaryAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  variant?: "default" | "outline";
 }
 
 export const AccountCard = forwardRef<HTMLDivElement, AccountCardProps>(function AccountCard(
@@ -82,49 +102,143 @@ export const AccountCard = forwardRef<HTMLDivElement, AccountCardProps>(function
   const isReviewed = account.status === "reviewed";
   const isSnoozed = account.status === "snoozed";
   const isFollowUp = account.status === "follow_up_needed";
-  // Reduce visual weight for any "completed" state, but keep visible.
-  const demoted = isContacted || isReviewed || isSnoozed;
+  const isProcessed = isContacted || isReviewed || isSnoozed;
   const pill = STATUS_PILL[account.status];
+
+  // Risk drives the left border color (priority signal).
+  const riskBorderClass =
+    account.risk === "high"
+      ? "border-l-4 border-l-[hsl(var(--risk-high))]"
+      : account.risk === "medium"
+      ? "border-l-4 border-l-[hsl(var(--risk-medium))]"
+      : "border-l-4 border-l-[hsl(var(--risk-low))]/40";
+
+  // Subtle background tint only for High Risk + still actionable.
+  const riskTintClass =
+    account.risk === "high" && !isProcessed ? "bg-[hsl(var(--badge-urgent-bg))]/30" : "bg-card";
+
+  // Healthy + processed rows lose more contrast.
+  const demotedClass = isProcessed
+    ? account.risk === "low"
+      ? "opacity-60"
+      : "opacity-75"
+    : account.risk === "low"
+    ? "opacity-90"
+    : "";
+
+  // Determine state-aware primary CTA.
+  const primary: PrimaryAction = (() => {
+    if (isSnoozed) {
+      return {
+        label: "Resume",
+        icon: <PlayCircle className="w-3.5 h-3.5 mr-1" />,
+        onClick: () => onMarkReviewed({ ...account, status: "needs_action" } as Account),
+        variant: "default",
+      };
+    }
+    if (isFollowUp) {
+      return {
+        label: "Follow Up",
+        icon: <ArrowUpRight className="w-3.5 h-3.5 mr-1" />,
+        onClick: () => onSendOutreach(account),
+        variant: "default",
+      };
+    }
+    if (isReviewed) {
+      return {
+        label: "Reopen",
+        icon: <RotateCcw className="w-3.5 h-3.5 mr-1" />,
+        onClick: () => onSendOutreach(account),
+        variant: "default",
+      };
+    }
+    if (isContacted) {
+      return {
+        label: "Log Outcome",
+        icon: <CheckCircle className="w-3.5 h-3.5 mr-1" />,
+        onClick: () => onSendOutreach(account),
+        variant: "default",
+      };
+    }
+    return {
+      label: "Send Outreach",
+      icon: <MessageCircle className="w-3.5 h-3.5 mr-1" />,
+      onClick: () => onSendOutreach(account),
+      variant: "default",
+    };
+  })();
 
   return (
     <div
       ref={ref}
       className={cn(
-        "bg-card rounded-lg border shadow-sm hover:shadow-md transition-all",
+        "rounded-lg border border-border shadow-sm hover:shadow transition-all",
+        riskBorderClass,
+        riskTintClass,
+        demotedClass,
         selected && "ring-2 ring-primary border-primary",
-        demoted && "opacity-70",
         highlight && "ring-2 ring-primary border-primary animate-pulse",
       )}
     >
-      <div className="p-4">
-        {/* Top row */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Checkbox
-              checked={selected}
-              onCheckedChange={(c) => onToggleSelected(account.id, c === true)}
-              aria-label={`Select ${account.name}`}
-              className="mt-0.5"
+      <div className="px-3 py-2.5">
+        {/* Row: identity | metrics | risk/status | primary action */}
+        <div className="flex items-center gap-3">
+          {/* Identity */}
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(c) => onToggleSelected(account.id, c === true)}
+            aria-label={`Select ${account.name}`}
+          />
+          <button
+            onClick={() => onSelect(account)}
+            className="text-left min-w-0 w-[200px] shrink-0"
+          >
+            <div
+              className={cn(
+                "font-semibold text-sm truncate hover:text-primary transition-colors",
+                isProcessed ? "text-muted-foreground" : "text-foreground",
+              )}
+            >
+              {account.name}
+            </div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              {account.contactName} · {account.plan}
+            </div>
+          </button>
+
+          {/* Metrics — table-like columns */}
+          <div className="hidden md:grid grid-cols-5 gap-3 flex-1 min-w-0 text-xs">
+            <Metric label="Day" value={String(account.daysSinceSignup)} />
+            <Metric
+              label="Invites"
+              value={String(account.invitesSent)}
+              tone={account.invitesSent === 0 ? "danger" : "default"}
             />
-            <button onClick={() => onSelect(account)} className="text-left min-w-0">
-              <div className="font-semibold text-sm text-foreground hover:text-primary transition-colors truncate">
-                {account.name}
-              </div>
-              <div className="text-xs text-muted-foreground">{account.contactName} · {account.plan}</div>
-            </button>
+            <Metric
+              label="Users"
+              value={String(account.activeUsers)}
+            />
+            <Metric
+              label="Last activity"
+              value={account.lastActivityDays === 0 ? "Today" : `${account.lastActivityDays}d ago`}
+              tone={account.lastActivityDays >= 2 ? "warn" : "default"}
+            />
+            <Metric label="ARR" value={`$${(account.arr / 1000).toFixed(0)}k`} />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+
+          {/* Risk + Status */}
+          <div className="flex flex-col items-end gap-1 shrink-0 w-[150px]">
             <RiskBadge risk={account.risk} />
             {pill && (
               <span
                 className={cn(
-                  "inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-full border",
+                  "inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded border",
                   pill.className,
                 )}
               >
                 {pill.label}
                 {isSnoozed && snoozeUntil && (
-                  <span className="ml-1 opacity-80">· until {snoozeUntil.toLocaleDateString()}</span>
+                  <span className="ml-1 opacity-80">· {snoozeUntil.toLocaleDateString()}</span>
                 )}
                 {isFollowUp && followUpDate && (
                   <span className="ml-1 opacity-80">· {followUpDate.toLocaleDateString()}</span>
@@ -132,104 +246,116 @@ export const AccountCard = forwardRef<HTMLDivElement, AccountCardProps>(function
               </span>
             )}
           </div>
-        </div>
 
-        {/* Stats row */}
-        <div className="flex items-center gap-4 text-xs mb-3">
-          <span className="text-muted-foreground">
-            Day <span className="font-medium text-foreground">{account.daysSinceSignup}</span>
-          </span>
-          <span className={account.invitesSent === 0 ? "text-risk-high font-medium" : "text-muted-foreground"}>
-            {account.invitesSent} invites
-          </span>
-          <span className="text-muted-foreground">
-            {account.activeUsers} user{account.activeUsers > 1 ? "s" : ""}
-          </span>
-          <span className={account.lastActivityDays >= 2 ? "text-risk-medium font-medium" : "text-muted-foreground"}>
-            {account.lastActivityDays === 0 ? "Active today" : `No activity in ${account.lastActivityDays}d`}
-          </span>
-          <span className="text-muted-foreground ml-auto">${(account.arr / 1000).toFixed(0)}k ARR</span>
-        </div>
-
-        {/* Context insight */}
-        <div className="bg-muted/50 rounded-md px-3 py-2 mb-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-risk-medium mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {account.invitesSent === 0
-                ? `This account has not invited any teammates within ${account.daysSinceSignup} days of signup. Accounts like this churn at 78%.`
-                : `Account showing some activation but needs monitoring. Accounts with invites retain at 68% vs 22% without.`}
-            </p>
+          {/* Primary action — always right-aligned */}
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="sm"
+              variant={primary.variant}
+              className="h-8 text-xs"
+              onClick={primary.onClick}
+            >
+              {primary.icon}
+              {primary.label}
+            </Button>
+            <button
+              onClick={() => onSelect(account)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              aria-label="View details"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Quote */}
-        {account.quote && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-start gap-2 mb-3 cursor-help">
-                <Quote className="w-3 h-3 text-muted-foreground mt-0.5 shrink-0" />
-                <p className="text-xs text-muted-foreground italic truncate">
-                  "{account.quote.text}" — <span className="not-italic">{account.quote.source}</span>
-                </p>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-xs">
-              <p className="text-sm italic">"{account.quote.text}"</p>
-              <p className="text-xs text-muted-foreground mt-1">— {account.quote.source}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        {/* Secondary actions — de-emphasized, only when actionable */}
+        <div className="flex items-center gap-1 mt-2 pl-7 text-[11px]">
+          {!isContacted && account.status !== "needs_action" ? null : null}
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="default"
-            className="text-xs h-7"
-            onClick={() => onSendOutreach(account)}
-            disabled={isContacted}
-          >
-            <MessageCircle className="w-3 h-3 mr-1" />
-            Send Outreach
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="text-xs h-7"
+          <SecondaryAction
+            label="Prompt Invite"
+            icon={<UserPlus className="w-3 h-3 mr-1" />}
             onClick={() => onPromptInvite(account)}
-          >
-            <UserPlus className="w-3 h-3 mr-1" />
-            Prompt Invite
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-xs h-7"
-            onClick={() => onMarkReviewed(account)}
-            disabled={isReviewed}
-          >
-            <CheckCircle className="w-3 h-3 mr-1" />
-            Mark Reviewed
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-xs h-7"
-            onClick={() => onSnooze(account)}
-            disabled={isSnoozed}
-          >
-            <Clock className="w-3 h-3 mr-1" />
-            Snooze
-          </Button>
-          <button
-            onClick={() => onSelect(account)}
-            className="ml-auto text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          />
+          {!isReviewed && (
+            <SecondaryAction
+              label="Mark Reviewed"
+              icon={<CheckCircle className="w-3 h-3 mr-1" />}
+              onClick={() => onMarkReviewed(account)}
+            />
+          )}
+          {!isSnoozed && (
+            <SecondaryAction
+              label="Snooze"
+              icon={<Clock className="w-3 h-3 mr-1" />}
+              onClick={() => onSnooze(account)}
+            />
+          )}
+
+          {/* Quote tooltip — collapsed to a tiny info marker to preserve density. */}
+          {account.quote && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="ml-auto text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  <span className="italic truncate max-w-[260px]">"{account.quote.text}"</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="text-sm italic">"{account.quote.text}"</p>
+                <p className="text-xs text-muted-foreground mt-1">— {account.quote.source}</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
     </div>
   );
 });
+
+function Metric({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "danger" | "warn";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "text-[hsl(var(--risk-high))] font-semibold"
+      : tone === "warn"
+      ? "text-[hsl(var(--risk-medium))] font-semibold"
+      : "text-foreground font-medium";
+  return (
+    <div className="min-w-0">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("text-xs truncate", toneClass)}>{value}</div>
+    </div>
+  );
+}
+
+function SecondaryAction({
+  label,
+  icon,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}

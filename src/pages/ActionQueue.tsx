@@ -259,20 +259,19 @@ export default function ActionQueuePage() {
 
   const sortedAccounts = useMemo(() => {
     const riskOrder = { high: 0, medium: 1, low: 2 };
-    const statusOrder: Record<AccountStatus, number> = {
-      needs_action: 0,
-      follow_up_needed: 1,
-      contacted: 2,
-      reviewed: 3,
-      snoozed: 4,
-    };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
       .filter((a) => statusFilter === "all" || a.status === statusFilter)
       .sort((a, b) => {
-        const sd = statusOrder[a.status] - statusOrder[b.status];
-        if (sd !== 0) return sd;
-        return riskOrder[a.risk] - riskOrder[b.risk];
+        // Processed rows sink below actionable rows but stay visible.
+        const aProcessed = a.status === "contacted" || a.status === "reviewed" || a.status === "snoozed" ? 1 : 0;
+        const bProcessed = b.status === "contacted" || b.status === "reviewed" || b.status === "snoozed" ? 1 : 0;
+        if (aProcessed !== bProcessed) return aProcessed - bProcessed;
+        // Primary: Risk Level (High → Medium → Healthy).
+        const rd = riskOrder[a.risk] - riskOrder[b.risk];
+        if (rd !== 0) return rd;
+        // Secondary: recency / inactivity — most inactive first.
+        return b.lastActivityDays - a.lastActivityDays;
       });
   }, [accounts, riskFilter, statusFilter]);
 
