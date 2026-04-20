@@ -4,8 +4,34 @@ import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
 import { OutreachModal } from "@/components/OutreachModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
-import { mockAccounts, Account, AccountStatus } from "@/data/mockAccounts";
+import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
 import { useToast } from "@/hooks/use-toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { cn } from "@/lib/utils";
+
+const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
+  {
+    value: "high",
+    label: "High Risk",
+    dotClass: "bg-[hsl(var(--risk-high))]",
+    activeClass:
+      "data-[state=on]:bg-[hsl(var(--badge-urgent-bg))] data-[state=on]:text-[hsl(var(--badge-urgent-fg))] data-[state=on]:border-[hsl(var(--risk-high))]",
+  },
+  {
+    value: "medium",
+    label: "Medium Risk",
+    dotClass: "bg-[hsl(var(--risk-medium))]",
+    activeClass:
+      "data-[state=on]:bg-[hsl(var(--badge-warning-bg))] data-[state=on]:text-[hsl(var(--badge-warning-fg))] data-[state=on]:border-[hsl(var(--risk-medium))]",
+  },
+  {
+    value: "low",
+    label: "Healthy",
+    dotClass: "bg-[hsl(var(--risk-low))]",
+    activeClass:
+      "data-[state=on]:bg-[hsl(var(--badge-success-bg))] data-[state=on]:text-[hsl(var(--badge-success-fg))] data-[state=on]:border-[hsl(var(--risk-low))]",
+  },
+];
 
 export default function ActionQueuePage() {
   const { toast } = useToast();
@@ -13,16 +39,28 @@ export default function ActionQueuePage() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
+  const [riskFilter, setRiskFilter] = useState<RiskLevel[]>(["high", "medium", "low"]);
+
+  const riskCounts = useMemo(
+    () => ({
+      high: accounts.filter((a) => a.risk === "high").length,
+      medium: accounts.filter((a) => a.risk === "medium").length,
+      low: accounts.filter((a) => a.risk === "low").length,
+    }),
+    [accounts],
+  );
 
   const sortedAccounts = useMemo(() => {
     const riskOrder = { high: 0, medium: 1, low: 2 };
     const statusOrder: Record<AccountStatus, number> = { needs_action: 0, contacted: 1, reviewed: 2 };
-    return [...accounts].sort((a, b) => {
-      const sd = statusOrder[a.status] - statusOrder[b.status];
-      if (sd !== 0) return sd;
-      return riskOrder[a.risk] - riskOrder[b.risk];
-    });
-  }, [accounts]);
+    return [...accounts]
+      .filter((a) => riskFilter.includes(a.risk))
+      .sort((a, b) => {
+        const sd = statusOrder[a.status] - statusOrder[b.status];
+        if (sd !== 0) return sd;
+        return riskOrder[a.risk] - riskOrder[b.risk];
+      });
+  }, [accounts, riskFilter]);
 
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
