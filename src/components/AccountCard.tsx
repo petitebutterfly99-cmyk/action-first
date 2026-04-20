@@ -43,6 +43,7 @@ export function AccountCard({
   onPromptInvite,
   onMarkReviewed,
   onSelect,
+  onSnooze,
   selected,
   onToggleSelected,
 }: AccountCardProps) {
