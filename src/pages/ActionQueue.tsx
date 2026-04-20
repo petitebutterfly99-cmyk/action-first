@@ -259,13 +259,6 @@ export default function ActionQueuePage() {
 
   const sortedAccounts = useMemo(() => {
     const riskOrder = { high: 0, medium: 1, low: 2 };
-    const statusOrder: Record<AccountStatus, number> = {
-      needs_action: 0,
-      follow_up_needed: 1,
-      contacted: 2,
-      reviewed: 3,
-      snoozed: 4,
-    };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
       .filter((a) => statusFilter === "all" || a.status === statusFilter)
