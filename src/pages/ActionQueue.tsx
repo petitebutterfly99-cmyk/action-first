@@ -164,7 +164,7 @@ export default function ActionQueuePage() {
     // Find the highest-priority remaining account that still needs action.
     const riskOrder = { high: 0, medium: 1, low: 2 };
     const candidate = [...accounts]
-      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
+      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk) && !isSnoozed(a.id))
       .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
     if (candidate) {
       // Surface as Next Best Account flow so the CSM can confirm and stay in the loop.
