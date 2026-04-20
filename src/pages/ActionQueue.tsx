@@ -279,6 +279,69 @@ export default function ActionQueuePage() {
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
+  // Counts per Queue Status, scoped to currently selected risk filter so the
+  // dropdown reflects what users will actually see when they pick a status.
+  const statusCounts = useMemo(() => {
+    const inRisk = accounts.filter((a) => riskFilter.includes(a.risk));
+    return {
+      all: inRisk.length,
+      contacted: inRisk.filter((a) => a.status === "contacted").length,
+      reviewed: inRisk.filter((a) => a.status === "reviewed").length,
+      snoozed: inRisk.filter((a) => a.status === "snoozed").length,
+      follow_up_needed: inRisk.filter((a) => a.status === "follow_up_needed").length,
+      needs_action: inRisk.filter((a) => a.status === "needs_action").length,
+    };
+  }, [accounts, riskFilter]);
+
+  const RISK_LABEL: Record<RiskLevel, string> = { high: "High Risk", medium: "Medium Risk", low: "Healthy" };
+  const STATUS_LABEL: Record<"all" | AccountStatus, string> = {
+    all: "All",
+    contacted: "Contacted",
+    reviewed: "Reviewed",
+    snoozed: "Snoozed",
+    follow_up_needed: "Follow-up Needed",
+    needs_action: "Needs Action",
+  };
+
+  const isDefaultFilters =
+    riskFilter.length === 3 && statusFilter === "all";
+
+  const clearFilters = () => {
+    setRiskFilter(["high", "medium", "low"]);
+    setStatusFilter("all");
+  };
+
+  const removeRiskChip = (r: RiskLevel) => {
+    const next = riskFilter.filter((x) => x !== r);
+    if (next.length === 0) setRiskFilter(["high", "medium", "low"]);
+    else setRiskFilter(next);
+  };
+
+  /**
+   * Wrap an account update so we notify the user if the row falls out of the
+   * active filters as a result. Prevents the "did it just disappear?" feel.
+   */
+  const updateAccountWithFilterAwareness = (
+    id: string,
+    updates: Partial<Account>,
+    accountName: string,
+  ) => {
+    const before = accounts.find((a) => a.id === id);
+    updateAccount(id, updates);
+    if (!before) return;
+    const after = { ...before, ...updates };
+    const wasVisible =
+      riskFilter.includes(before.risk) && (statusFilter === "all" || before.status === statusFilter);
+    const isVisible =
+      riskFilter.includes(after.risk) && (statusFilter === "all" || after.status === statusFilter);
+    if (wasVisible && !isVisible) {
+      toast({
+        title: "Moved out of current filter",
+        description: `${accountName} moved out of the current filter after its status was updated.`,
+      });
+    }
+  };
+
   const updateAccount = (id: string, updates: Partial<Account>) => {
     setAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates } : a)));
     if (selectedAccount?.id === id) {
