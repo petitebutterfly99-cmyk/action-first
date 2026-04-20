@@ -219,7 +219,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
             <div className="flex items-start justify-between gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
-                <span>We couldn't generate a suggestion right now. You can still write your own.</span>
+                <span>We couldn't generate a suggestion right now. You can still edit this message.</span>
               </div>
               <Button
                 size="sm"
