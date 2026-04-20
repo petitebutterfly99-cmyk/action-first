@@ -177,7 +177,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
   if (!account) return null;
 
   const isSending = sendState === "sending";
-  const sendDisabled = isSending || isGenerating || !message.trim();
+  const sendDisabled = isSending || !message.trim();
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -190,31 +190,41 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
             To: {account.contactName} ({account.contactEmail})
           </div>
 
-          {generationFailed && (
-            <div className="flex items-start gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
-              <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
-              <span>We couldn't generate a suggested message. You can still write your own.</span>
+          <Textarea
+            value={message}
+            onChange={handleMessageChange}
+            rows={4}
+            className="text-sm"
+            placeholder={FALLBACK_PLACEHOLDER}
+            disabled={isSending}
+            autoFocus
+          />
+
+          {/* Background generation status — never blocks the compose UI. */}
+          {isGenerating && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Generating suggested message…
             </div>
           )}
 
-          <div className="relative">
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={4}
-              className="text-sm"
-              placeholder={FALLBACK_PLACEHOLDER}
-              disabled={isSending}
-            />
-            {isGenerating && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-md">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Generating suggested message…
-                </div>
+          {!isGenerating && (generationTimedOut || generationFailed) && (
+            <div className="flex items-start justify-between gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
+                <span>We couldn't generate a suggestion right now. You can still write your own.</span>
               </div>
-            )}
-          </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs px-2 -mt-0.5 shrink-0"
+                onClick={handleRetryGeneration}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Try again
+              </Button>
+            </div>
+          )}
 
           {sendState === "error" && (
             <div className="rounded-md border border-[hsl(var(--risk-high))] bg-[hsl(var(--badge-urgent-bg))] p-3 space-y-2">
