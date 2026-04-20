@@ -469,23 +469,29 @@ export default function ActionQueuePage() {
           </div>
 
           <div className="space-y-3 pb-24">
-            {sortedAccounts.map((account) => (
-              <AccountCard
-                key={account.id}
-                ref={(el) => (cardRefs.current[account.id] = el)}
-                account={account}
-                onSendOutreach={setOutreachAccount}
-                onPromptInvite={handlePromptInvite}
-                onMarkReviewed={handleMarkReviewed}
-                onSelect={setSelectedAccount}
-                onSnooze={setSnoozeAccount}
-                selected={selectedIds.has(account.id)}
-                onToggleSelected={toggleSelected}
-                highlight={highlightId === account.id}
-                snoozeUntil={snoozes[account.id]?.until}
-                followUpDate={followUpDates[account.id]}
-              />
-            ))}
+            {sortedAccounts.length === 0 ? (
+              <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                No accounts match this filter
+              </div>
+            ) : (
+              sortedAccounts.map((account) => (
+                <AccountCard
+                  key={account.id}
+                  ref={(el) => (cardRefs.current[account.id] = el)}
+                  account={account}
+                  onSendOutreach={setOutreachAccount}
+                  onPromptInvite={handlePromptInvite}
+                  onMarkReviewed={handleMarkReviewed}
+                  onSelect={setSelectedAccount}
+                  onSnooze={setSnoozeAccount}
+                  selected={selectedIds.has(account.id)}
+                  onToggleSelected={toggleSelected}
+                  highlight={highlightId === account.id}
+                  snoozeUntil={snoozes[account.id]?.until}
+                  followUpDate={followUpDates[account.id]}
+                />
+              ))
+            )}
           </div>
         </div>
       </div>
