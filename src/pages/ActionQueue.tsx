@@ -228,18 +228,18 @@ export default function ActionQueuePage() {
       ids.forEach((id) => (next[id] = date));
       return next;
     });
-    setAccounts((prev) =>
-      prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
-    );
-    try {
-      activityStore.log({
+    safeLog(
+      toast,
+      () =>
+        setAccounts((prev) =>
+          prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
+        ),
+      {
         action: `Assigned follow-up to ${ids.length} accounts for ${format(date, "PPP")}`,
         type: "save_outcome",
         account: targets.map((t) => t.name).join(", "),
-      });
-    } catch {
-      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
-    }
+      },
+    );
     setBulkFollowUpOpen(false);
     toast({
       title: "Follow-up assigned",
