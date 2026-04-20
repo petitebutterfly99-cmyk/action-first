@@ -36,20 +36,34 @@ function RiskBadge({ risk }: { risk: RiskLevel }) {
   );
 }
 
-export function AccountCard({ account, onSendOutreach, onPromptInvite, onMarkReviewed, onSelect }: AccountCardProps) {
+export function AccountCard({
+  account,
+  onSendOutreach,
+  onPromptInvite,
+  onMarkReviewed,
+  onSelect,
+  selected,
+  onToggleSelected,
+}: AccountCardProps) {
   const isContacted = account.status === "contacted";
   const isReviewed = account.status === "reviewed";
 
   return (
     <div
       className={`bg-card rounded-lg border shadow-sm hover:shadow-md transition-shadow ${
-        isContacted || isReviewed ? "opacity-60" : ""
-      }`}
+        selected ? "ring-2 ring-primary border-primary" : ""
+      } ${isContacted || isReviewed ? "opacity-60" : ""}`}
     >
       <div className="p-4">
         {/* Top row */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3 min-w-0">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={(c) => onToggleSelected(account.id, c === true)}
+              aria-label={`Select ${account.name}`}
+              className="mt-0.5"
+            />
             <button onClick={() => onSelect(account)} className="text-left min-w-0">
               <div className="font-semibold text-sm text-foreground hover:text-primary transition-colors truncate">
                 {account.name}
