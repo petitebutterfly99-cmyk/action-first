@@ -534,7 +534,7 @@ export default function ActionQueuePage() {
   const handleMarkReviewed = (account: Account) => {
     safeLog(
       toast,
-      () => updateAccount(account.id, { status: "reviewed" }),
+      () => updateAccountWithFilterAwareness(account.id, { status: "reviewed" }, account.name),
       {
         action: "Marked as reviewed",
         type: "mark_reviewed",
