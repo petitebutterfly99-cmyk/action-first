@@ -1,15 +1,17 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { CalendarIcon, MessageCircle, CheckCircle, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AccountCard } from "@/components/AccountCard";
 import { AccountDetailPanel } from "@/components/AccountDetailPanel";
 import { OutreachModal } from "@/components/OutreachModal";
-import { OutcomeModal, OutreachOutcome, STATUS_TO_ACCOUNT_STATUS } from "@/components/OutcomeModal";
+import { OutcomeModal, OutreachOutcome } from "@/components/OutcomeModal";
 import { PromptInviteModal } from "@/components/PromptInviteModal";
 import { NextBestAccountModal } from "@/components/NextBestAccountModal";
 import { SnoozeModal, SnoozeData } from "@/components/SnoozeModal";
 import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
+import { activityStore } from "@/data/activityStore";
 import { useToast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
@@ -41,8 +43,36 @@ const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeC
   },
 ];
 
+/**
+ * Wrap an action so we always log to the activity store. Performs the action
+ * first; only logs if the action succeeds. If logging itself throws, we surface
+ * a non-blocking warning toast — the action itself is preserved.
+ */
+function safeLog(
+  toast: ReturnType<typeof useToast>["toast"],
+  action: () => void,
+  entry: Parameters<typeof activityStore.log>[0],
+) {
+  try {
+    action();
+  } catch (e) {
+    // Action failed — do not log.
+    throw e;
+  }
+  try {
+    activityStore.log(entry);
+  } catch {
+    toast({
+      title: "Heads up",
+      description: "Action completed, but Activity Log could not be updated.",
+      variant: "destructive",
+    });
+  }
+}
+
 export default function ActionQueuePage() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [outreachAccount, setOutreachAccount] = useState<Account | null>(null);
@@ -56,18 +86,8 @@ export default function ActionQueuePage() {
   const [bulkFollowUpOpen, setBulkFollowUpOpen] = useState(false);
   const [snoozeAccount, setSnoozeAccount] = useState<Account | null>(null);
   const [snoozes, setSnoozes] = useState<Record<string, SnoozeData>>({});
-  const [now, setNow] = useState(() => Date.now());
-
-  // Tick every minute so snoozed accounts auto-reappear when their time is up.
-  useMemo(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const isSnoozed = (id: string) => {
-    const s = snoozes[id];
-    return !!s && s.until.getTime() > now;
-  };
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const toggleSelected = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -91,27 +111,58 @@ export default function ActionQueuePage() {
   };
 
   const handleBulkSendOutreach = () => {
-    const count = selectedIds.size;
-    applyBulk(() => ({ status: "contacted" as AccountStatus }));
-    toast({ title: "Outreach sent", description: `Sent to ${count} account${count > 1 ? "s" : ""}.` });
+    const ids = Array.from(selectedIds);
+    const targets = accounts.filter((a) => ids.includes(a.id));
+    safeLog(
+      toast,
+      () => applyBulk(() => ({ status: "contacted" as AccountStatus })),
+      {
+        action: `Sent outreach to ${ids.length} accounts`,
+        type: "send_outreach",
+        account: targets.map((t) => t.name).join(", "),
+      },
+    );
+    toast({ title: "Outreach sent", description: `Sent to ${ids.length} account${ids.length > 1 ? "s" : ""}.` });
     clearSelection();
   };
 
   const handleBulkMarkReviewed = () => {
-    const count = selectedIds.size;
-    applyBulk(() => ({ status: "reviewed" as AccountStatus }));
-    toast({ title: "Marked as reviewed", description: `${count} account${count > 1 ? "s" : ""} marked as reviewed.` });
+    const ids = Array.from(selectedIds);
+    const targets = accounts.filter((a) => ids.includes(a.id));
+    safeLog(
+      toast,
+      () => applyBulk(() => ({ status: "reviewed" as AccountStatus })),
+      {
+        action: `Marked ${ids.length} accounts as reviewed`,
+        type: "mark_reviewed",
+        account: targets.map((t) => t.name).join(", "),
+      },
+    );
+    toast({ title: "Marked as reviewed", description: `${ids.length} account${ids.length > 1 ? "s" : ""} marked as reviewed.` });
     clearSelection();
   };
 
   const handleBulkAssignFollowUp = (date: Date | undefined) => {
     if (!date) return;
     const ids = Array.from(selectedIds);
+    const targets = accounts.filter((a) => ids.includes(a.id));
     setFollowUpDates((prev) => {
       const next = { ...prev };
       ids.forEach((id) => (next[id] = date));
       return next;
     });
+    setAccounts((prev) =>
+      prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
+    );
+    try {
+      activityStore.log({
+        action: `Assigned follow-up to ${ids.length} accounts for ${format(date, "PPP")}`,
+        type: "save_outcome",
+        account: targets.map((t) => t.name).join(", "),
+      });
+    } catch {
+      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
+    }
     setBulkFollowUpOpen(false);
     toast({
       title: "Follow-up assigned",
@@ -131,19 +182,23 @@ export default function ActionQueuePage() {
 
   const sortedAccounts = useMemo(() => {
     const riskOrder = { high: 0, medium: 1, low: 2 };
-    const statusOrder: Record<AccountStatus, number> = { needs_action: 0, contacted: 1, reviewed: 2 };
+    const statusOrder: Record<AccountStatus, number> = {
+      needs_action: 0,
+      follow_up_needed: 1,
+      contacted: 2,
+      reviewed: 3,
+      snoozed: 4,
+    };
     return [...accounts]
       .filter((a) => riskFilter.includes(a.risk))
-      .filter((a) => !isSnoozed(a.id))
       .sort((a, b) => {
         const sd = statusOrder[a.status] - statusOrder[b.status];
         if (sd !== 0) return sd;
         return riskOrder[a.risk] - riskOrder[b.risk];
       });
-  }, [accounts, riskFilter, snoozes, now]);
+  }, [accounts, riskFilter]);
 
-  const snoozedCount = Object.keys(snoozes).filter((id) => isSnoozed(id)).length;
-
+  const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
@@ -153,21 +208,64 @@ export default function ActionQueuePage() {
     }
   };
 
-  const handleSendOutreach = (account: Account, _message: string) => {
+  // Deep-link focus from /accounts → /?focus=<id>
+  useEffect(() => {
+    const focusId = searchParams.get("focus");
+    if (!focusId) return;
+    const target = accounts.find((a) => a.id === focusId);
+    if (!target) {
+      toast({
+        title: "Not in Action Queue",
+        description: "This account is not currently in the Action Queue.",
+      });
+      const next = new URLSearchParams(searchParams);
+      next.delete("focus");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    // Make sure the row is visible regardless of current filter.
+    if (!riskFilter.includes(target.risk)) {
+      setRiskFilter((prev) => Array.from(new Set([...prev, target.risk])) as RiskLevel[]);
+    }
+    setHighlightId(focusId);
+    // Scroll once the row is rendered.
+    requestAnimationFrame(() => {
+      const el = cardRefs.current[focusId];
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const t = setTimeout(() => setHighlightId(null), 2400);
+    const next = new URLSearchParams(searchParams);
+    next.delete("focus");
+    setSearchParams(next, { replace: true });
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get("focus")]);
+
+  const handleSendOutreach = (account: Account, message: string) => {
     setOutreachAccount(null);
+    safeLog(
+      toast,
+      () => {
+        /* outreach succeeds — UI updates downstream */
+      },
+      {
+        action: "Sent outreach",
+        type: "send_outreach",
+        account: account.name,
+        accountId: account.id,
+        note: message?.slice(0, 140),
+      },
+    );
     toast({ title: "Outreach sent", description: `Message sent to ${account.contactName} at ${account.name}` });
-    // Immediately chain into outcome capture — keep CSM in the workflow.
     setOutcomeAccount(account);
   };
 
   const advanceToNextBestAccount = (justHandledId: string) => {
-    // Find the highest-priority remaining account that still needs action.
     const riskOrder = { high: 0, medium: 1, low: 2 };
     const candidate = [...accounts]
-      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk) && !isSnoozed(a.id))
+      .filter((a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk))
       .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
     if (candidate) {
-      // Surface as Next Best Account flow so the CSM can confirm and stay in the loop.
       setSelectedAccount(null);
       setNextBestAccount(candidate);
     } else {
@@ -188,8 +286,28 @@ export default function ActionQueuePage() {
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
     setOutcomes((prev) => ({ ...prev, [account.id]: outcome }));
-    const mapped = STATUS_TO_ACCOUNT_STATUS[outcome.status];
-    if (mapped) updateAccount(account.id, { status: mapped });
+    // Map outcome → row state. Follow-up needed gets its own status now.
+    let newStatus: AccountStatus = "contacted";
+    if (outcome.status === "follow_up_needed" || outcome.followUpDate) {
+      newStatus = "follow_up_needed";
+    } else if (outcome.status === "no_response") {
+      // Leave as is — outreach was attempted but not confirmed; treat as contacted for tracking.
+      newStatus = "contacted";
+    }
+    if (outcome.followUpDate) {
+      setFollowUpDates((prev) => ({ ...prev, [account.id]: outcome.followUpDate! }));
+    }
+    safeLog(
+      toast,
+      () => updateAccount(account.id, { status: newStatus }),
+      {
+        action: `Saved outcome: ${outcome.status.replace("_", " ")}`,
+        type: "save_outcome",
+        account: account.name,
+        accountId: account.id,
+        note: outcome.notes || (outcome.followUpDate ? `Follow-up ${outcome.followUpDate.toLocaleDateString()}` : undefined),
+      },
+    );
     setOutcomeAccount(null);
     toast({
       title: "Outcome saved",
@@ -201,16 +319,38 @@ export default function ActionQueuePage() {
   };
 
   const handleSkipOutcome = (account: Account) => {
-    // Even on skip, the outreach was sent — reflect that on the account.
     updateAccount(account.id, { status: "contacted" });
     setOutcomeAccount(null);
     advanceToNextBestAccount(account.id);
   };
 
   const handleMarkReviewed = (account: Account) => {
-    updateAccount(account.id, { status: "reviewed" });
+    safeLog(
+      toast,
+      () => updateAccount(account.id, { status: "reviewed" }),
+      {
+        action: "Marked as reviewed",
+        type: "mark_reviewed",
+        account: account.name,
+        accountId: account.id,
+      },
+    );
     toast({ title: "Marked as reviewed", description: `${account.name} marked as reviewed` });
     advanceToNextBestAccount(account.id);
+  };
+
+  const handlePromptInvite = (account: Account) => {
+    setPromptAccount(account);
+    try {
+      activityStore.log({
+        action: "Sent invite prompt",
+        type: "prompt_invite",
+        account: account.name,
+        accountId: account.id,
+      });
+    } catch {
+      toast({ title: "Heads up", description: "Action completed, but Activity Log could not be updated.", variant: "destructive" });
+    }
   };
 
   const REASON_LABELS: Record<string, string> = {
@@ -226,9 +366,21 @@ export default function ActionQueuePage() {
   };
 
   const handleSnooze = (account: Account, data: SnoozeData) => {
-    setSnoozes((prev) => ({ ...prev, [account.id]: data }));
+    safeLog(
+      toast,
+      () => {
+        setSnoozes((prev) => ({ ...prev, [account.id]: data }));
+        updateAccount(account.id, { status: "snoozed" });
+      },
+      {
+        action: `Snoozed for ${DURATION_LABELS[data.duration]}`,
+        type: "snooze",
+        account: account.name,
+        accountId: account.id,
+        note: data.reason ? REASON_LABELS[data.reason] : undefined,
+      },
+    );
     setSnoozeAccount(null);
-    // Clean up any selection state and close detail if open.
     setSelectedIds((prev) => {
       const next = new Set(prev);
       next.delete(account.id);
@@ -239,7 +391,7 @@ export default function ActionQueuePage() {
       title: `Snoozed for ${DURATION_LABELS[data.duration]}`,
       description: data.reason
         ? `${account.name} · ${REASON_LABELS[data.reason]}`
-        : `${account.name} hidden from queue.`,
+        : `${account.name} kept in queue with snoozed status.`,
     });
   };
 
@@ -296,14 +448,18 @@ export default function ActionQueuePage() {
             {sortedAccounts.map((account) => (
               <AccountCard
                 key={account.id}
+                ref={(el) => (cardRefs.current[account.id] = el)}
                 account={account}
                 onSendOutreach={setOutreachAccount}
-                onPromptInvite={setPromptAccount}
+                onPromptInvite={handlePromptInvite}
                 onMarkReviewed={handleMarkReviewed}
                 onSelect={setSelectedAccount}
                 onSnooze={setSnoozeAccount}
                 selected={selectedIds.has(account.id)}
                 onToggleSelected={toggleSelected}
+                highlight={highlightId === account.id}
+                snoozeUntil={snoozes[account.id]?.until}
+                followUpDate={followUpDates[account.id]}
               />
             ))}
           </div>

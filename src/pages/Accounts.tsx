@@ -1,8 +1,16 @@
 import { AppLayout } from "@/components/AppLayout";
 import { mockAccounts } from "@/data/mockAccounts";
-import { Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowUpRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export default function AccountsPage() {
+  const navigate = useNavigate();
+
+  const handleViewInQueue = (id: string) => {
+    navigate(`/?focus=${id}`);
+  };
+
   return (
     <AppLayout title="All Accounts" subtitle="Complete list of managed accounts">
       <div className="overflow-x-auto">
@@ -18,6 +26,7 @@ export default function AccountsPage() {
               <th className="pb-2 font-medium">Users</th>
               <th className="pb-2 font-medium">Risk</th>
               <th className="pb-2 font-medium">Status</th>
+              <th className="pb-2 font-medium" />
             </tr>
           </thead>
           <tbody>
@@ -35,7 +44,18 @@ export default function AccountsPage() {
                     {a.risk}
                   </span>
                 </td>
-                <td className="py-2.5 capitalize text-muted-foreground">{a.status.replace("_", " ")}</td>
+                <td className="py-2.5 capitalize text-muted-foreground">{a.status.replace(/_/g, " ")}</td>
+                <td className="py-2.5 text-right">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-primary hover:text-primary"
+                    onClick={() => handleViewInQueue(a.id)}
+                  >
+                    View in Action Queue
+                    <ArrowUpRight className="w-3 h-3 ml-1" />
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
