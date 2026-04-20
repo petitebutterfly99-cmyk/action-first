@@ -576,7 +576,7 @@ export default function ActionQueuePage() {
       toast,
       () => {
         setSnoozes((prev) => ({ ...prev, [account.id]: data }));
-        updateAccount(account.id, { status: "snoozed" });
+        updateAccountWithFilterAwareness(account.id, { status: "snoozed" }, account.name);
       },
       {
         action: `Snoozed for ${DURATION_LABELS[data.duration]}`,
