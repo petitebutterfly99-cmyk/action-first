@@ -124,7 +124,11 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
 
   const handleRetryGeneration = () => {
     if (!account) return;
-    if (message.trim().length === 0) userTypedRef.current = false;
+    // If the user hasn't authored their own message, reset the typed flag so a
+    // successful retry can replace the default template with the AI suggestion.
+    if (!userTypedRef.current || message === buildDefaultTemplate(account)) {
+      userTypedRef.current = false;
+    }
     startGeneration(account);
   };
 
