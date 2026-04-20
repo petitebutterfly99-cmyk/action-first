@@ -1,5 +1,5 @@
 import { Account, RiskLevel } from "@/data/mockAccounts";
-import { AlertTriangle, MessageCircle, UserPlus, CheckCircle, ChevronRight, Quote } from "lucide-react";
+import { AlertTriangle, MessageCircle, UserPlus, CheckCircle, ChevronRight, Quote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -10,6 +10,7 @@ interface AccountCardProps {
   onPromptInvite: (account: Account) => void;
   onMarkReviewed: (account: Account) => void;
   onSelect: (account: Account) => void;
+  onSnooze: (account: Account) => void;
   selected: boolean;
   onToggleSelected: (id: string, checked: boolean) => void;
 }
