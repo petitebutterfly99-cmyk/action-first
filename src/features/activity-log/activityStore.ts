@@ -1,7 +1,9 @@
-// Lightweight in-memory + localStorage activity store with a pub/sub layer
-// so any screen (Activity Log, header counters, etc.) can subscribe and stay
-// in sync after Action Queue actions.
+// Activity store: Supabase-backed with a localStorage fallback so the UI
+// stays responsive offline / when the network blips. Pub/sub layer keeps
+// the Activity Log page and any future counters in sync.
 
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { seedActivityLog } from "@/shared/data/accounts";
 
 export type ActivityActionType =
@@ -13,18 +15,47 @@ export type ActivityActionType =
 
 export interface ActivityEntry {
   id: string;
-  action: string; // human-readable label e.g. "Sent outreach"
+  action: string;
   type: ActivityActionType | "seed";
   account: string;
   accountId?: string;
   user: string;
   timestampISO: string;
-  timestamp: string; // human-readable ("2 hours ago", or "Just now")
+  timestamp: string;
   note?: string;
 }
 
+type ActivityRow = Database["public"]["Tables"]["activity_log"]["Row"];
+
 const CURRENT_USER = "You";
 const STORAGE_KEY = "csm.activityLog.v1";
+
+function rowToEntry(row: ActivityRow): ActivityEntry {
+  const iso = row.created_at;
+  return {
+    id: row.id,
+    action: row.action,
+    type: row.type,
+    account: row.account_name,
+    accountId: row.account_id ?? undefined,
+    user: row.user_label,
+    note: row.note ?? undefined,
+    timestampISO: iso,
+    timestamp: humanize(iso),
+  };
+}
+
+function humanize(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "Just now";
+  if (min < 60) return `${min} minute${min > 1 ? "s" : ""} ago`;
+  const hrs = Math.floor(min / 60);
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
+}
 
 function seedEntries(): ActivityEntry[] {
   return seedActivityLog.map((e) => ({
@@ -38,7 +69,7 @@ function seedEntries(): ActivityEntry[] {
   }));
 }
 
-function load(): ActivityEntry[] {
+function loadLocal(): ActivityEntry[] {
   if (typeof window === "undefined") return seedEntries();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -51,22 +82,40 @@ function load(): ActivityEntry[] {
   }
 }
 
-function persist(entries: ActivityEntry[]) {
+function persistLocal(next: ActivityEntry[]) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
-    // Surface to caller via thrown error so the UI can warn.
     throw new Error("activity-log-persist-failed");
   }
 }
 
-let entries: ActivityEntry[] = load();
+let entries: ActivityEntry[] = loadLocal();
 const listeners = new Set<(e: ActivityEntry[]) => void>();
 
 function emit() {
   listeners.forEach((l) => l(entries));
 }
+
+// Background hydrate from Supabase on first import.
+(async () => {
+  try {
+    const { data, error } = await supabase
+      .from("activity_log")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    if (data && data.length > 0) {
+      entries = data.map(rowToEntry);
+      persistLocal(entries);
+      emit();
+    }
+  } catch {
+    // Fall back to whatever loadLocal() gave us — UI stays usable.
+  }
+})();
 
 export const activityStore = {
   list(): ActivityEntry[] {
@@ -77,30 +126,49 @@ export const activityStore = {
     return () => listeners.delete(listener);
   },
   /**
-   * Append an entry. Throws if persistence fails. The in-memory list is only
-   * updated AFTER persistence succeeds, so subscribers never see a
-   * provisional entry that might disappear on retry.
+   * Append an entry. Tries Supabase first; on success uses the DB-issued id
+   * and timestamp. On failure, falls back to a local entry and persists to
+   * localStorage (throws if even that fails so safeLog can warn the user).
    */
-  log(input: {
+  async log(input: {
     action: string;
     type: ActivityActionType;
     account: string;
     accountId?: string;
     note?: string;
   }) {
-    const entry: ActivityEntry = {
-      id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      action: input.action,
-      type: input.type,
-      account: input.account,
-      accountId: input.accountId,
-      note: input.note,
-      user: CURRENT_USER,
-      timestamp: "Just now",
-      timestampISO: new Date().toISOString(),
-    };
+    let entry: ActivityEntry;
+    try {
+      const { data, error } = await supabase
+        .from("activity_log")
+        .insert({
+          action: input.action,
+          type: input.type,
+          account_name: input.account,
+          account_id: input.accountId ?? null,
+          note: input.note ?? null,
+          user_label: CURRENT_USER,
+        })
+        .select()
+        .single();
+      if (error || !data) throw error ?? new Error("no-data");
+      entry = rowToEntry(data);
+    } catch {
+      entry = {
+        id: `act-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        action: input.action,
+        type: input.type,
+        account: input.account,
+        accountId: input.accountId,
+        note: input.note,
+        user: CURRENT_USER,
+        timestamp: "Just now",
+        timestampISO: new Date().toISOString(),
+      };
+    }
+
     const next = [entry, ...entries];
-    persist(next); // may throw -> caller warns; entries unchanged
+    persistLocal(next); // throws -> caller warns; entries unchanged
     entries = next;
     emit();
     return entry;
