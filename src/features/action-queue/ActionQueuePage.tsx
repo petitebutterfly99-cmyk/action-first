@@ -764,6 +764,29 @@ export default function ActionQueuePage() {
               />
             ) : sortedAccounts.length === 0 ? (
               (() => {
+                // No accounts at all are assigned to this CSM yet — show
+                // the dedicated "no assigned accounts" empty state instead
+                // of a filter-based one.
+                if (accounts.length === 0) {
+                  return (
+                    <EmptyState
+                      icon={<Inbox className="w-6 h-6 text-muted-foreground" />}
+                      title="No assigned accounts"
+                      body="You don't have any accounts assigned yet."
+                      actions={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            (window.location.href = "mailto:admin@example.com")
+                          }
+                        >
+                          Contact admin
+                        </Button>
+                      }
+                    />
+                  );
+                }
                 const onlyHigh =
                   riskFilter.length === 1 &&
                   riskFilter[0] === "high" &&
