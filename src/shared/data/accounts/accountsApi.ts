@@ -6,7 +6,6 @@ import type { Database } from "@/integrations/supabase/types";
 import type { Account } from "./types";
 
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
-type AccountInsert = Database["public"]["Tables"]["accounts"]["Insert"];
 type AccountUpdate = Database["public"]["Tables"]["accounts"]["Update"];
 
 function rowToAccount(row: AccountRow): Account {
