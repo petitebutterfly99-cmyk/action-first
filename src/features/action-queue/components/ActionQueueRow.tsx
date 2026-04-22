@@ -104,6 +104,20 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
     const isProcessed = isContacted || isReviewed || isSnoozed;
     const pill = STATUS_PILL[account.status];
 
+    // Row-level "Contacted today" label is derived from the outreach
+    // timestamp — the same source of truth as the aggregate metric.
+    const contactedToday = (() => {
+      const iso = account.lastOutreachSentAt;
+      if (!iso) return false;
+      const d = new Date(iso);
+      const now = new Date();
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    })();
+
     // Risk drives the left border color (priority signal).
     const riskBorderClass =
       account.risk === "high"
@@ -237,6 +251,11 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
                   {isFollowUp && followUpDate && (
                     <span className="ml-1 opacity-80">· {followUpDate.toLocaleDateString()}</span>
                   )}
+                </span>
+              )}
+              {contactedToday && (
+                <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded border bg-badge-success-bg text-badge-success-fg border-[hsl(var(--risk-low))]/30">
+                  Contacted today
                 </span>
               )}
             </div>

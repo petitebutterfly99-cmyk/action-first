@@ -31,6 +31,9 @@ function rowToAccount(row: AccountRow): Account {
       row.quote_text && row.quote_source
         ? { text: row.quote_text, source: row.quote_source }
         : undefined,
+    lastOutreachSentAt: row.last_outreach_sent_at,
+    lastOutreachSentBy: row.last_outreach_sent_by,
+    outreachCount: row.outreach_count ?? 0,
   };
 }
 
@@ -71,6 +74,11 @@ function accountUpdateToRow(updates: Partial<Account>): AccountUpdate {
     map.minutes_to_first_task = updates.minutesToFirstTask;
   if (updates.contactName !== undefined) map.contact_name = updates.contactName;
   if (updates.contactEmail !== undefined) map.contact_email = updates.contactEmail;
+  if (updates.lastOutreachSentAt !== undefined)
+    map.last_outreach_sent_at = updates.lastOutreachSentAt;
+  if (updates.lastOutreachSentBy !== undefined)
+    map.last_outreach_sent_by = updates.lastOutreachSentBy;
+  if (updates.outreachCount !== undefined) map.outreach_count = updates.outreachCount;
   return map;
 }
 

@@ -23,4 +23,8 @@ export interface Account {
   contactName: string;
   contactEmail: string;
   quote?: { text: string; source: string };
+  /** ISO timestamp of the most recent successful outreach. */
+  lastOutreachSentAt?: string | null;
+  lastOutreachSentBy?: string | null;
+  outreachCount?: number;
 }

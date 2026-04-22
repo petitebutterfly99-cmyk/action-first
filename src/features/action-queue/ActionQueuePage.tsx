@@ -45,6 +45,7 @@ import {
   STATUS_LABEL,
   computeRiskCounts,
   computeStatusCounts,
+  countContactedToday,
   pickNextBestCandidate,
   selectQueue,
 } from "./queueLogic";
@@ -213,9 +214,16 @@ export default function ActionQueuePage() {
   const handleBulkSendOutreach = () => {
     const ids = Array.from(selectedIds);
     const targets = accounts.filter((a) => ids.includes(a.id));
+    const sentAt = new Date().toISOString();
     safeLog(
       toast,
-      () => applyBulk(() => ({ status: "contacted" as AccountStatus })),
+      () =>
+        applyBulk((a) => ({
+          status: "contacted" as AccountStatus,
+          lastOutreachSentAt: sentAt,
+          lastOutreachSentBy: "You",
+          outreachCount: (a.outreachCount ?? 0) + 1,
+        })),
       {
         action: `Sent outreach to ${ids.length} accounts`,
         type: "send_outreach",
@@ -293,6 +301,10 @@ export default function ActionQueuePage() {
   const needsActionCount = accounts.filter(
     (a) => a.status === "needs_action" && a.risk !== "low",
   ).length;
+  // Aggregate "Contacted Today" — derived from the same row-level
+  // last_outreach_sent_at timestamp that drives the row label. Re-sending
+  // to the same account today does not double-count.
+  const contactedTodayCount = useMemo(() => countContactedToday(accounts), [accounts]);
 
   const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
@@ -392,11 +404,19 @@ export default function ActionQueuePage() {
 
   const handleSendOutreach = (account: Account, message: string) => {
     setOutreachAccount(null);
+    const sentAt = new Date().toISOString();
+    // Atomic row update: status + timestamp + count, derived from the same
+    // success boundary. The timestamp is the source of truth for both the
+    // row's "Contacted today" label and the aggregate metric.
+    const rowUpdates: Partial<Account> = {
+      status: "contacted" as AccountStatus,
+      lastOutreachSentAt: sentAt,
+      lastOutreachSentBy: "You",
+      outreachCount: (account.outreachCount ?? 0) + 1,
+    };
     safeLog(
       toast,
-      () => {
-        // outreach succeeds — UI updates downstream
-      },
+      () => updateAccountWithFilterAwareness(account.id, rowUpdates, account.name),
       {
         action: "Sent outreach",
         type: "send_outreach",
@@ -409,7 +429,7 @@ export default function ActionQueuePage() {
       title: "Outreach sent",
       description: `Message sent to ${account.contactName} at ${account.name}`,
     });
-    setOutcomeAccount(account);
+    setOutcomeAccount({ ...account, ...rowUpdates });
   };
 
   const clearStillSearchingTimer = () => {
@@ -699,7 +719,7 @@ export default function ActionQueuePage() {
             <span>{accounts.filter((a) => a.risk === "high").length} high risk</span>
             <span>·</span>
             <span>
-              {accounts.filter((a) => a.status === "contacted").length} contacted today
+              {contactedTodayCount} contacted today
             </span>
             {snoozedCount > 0 && (
               <>
