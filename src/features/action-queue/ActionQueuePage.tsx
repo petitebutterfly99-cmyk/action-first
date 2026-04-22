@@ -335,6 +335,13 @@ export default function ActionQueuePage() {
     if (selectedAccount?.id === id) {
       setSelectedAccount((prev) => (prev ? { ...prev, ...updates } : null));
     }
+    updateAccountInDb(id, updates).catch(() => {
+      toast({
+        title: "Couldn't sync change",
+        description: "This update didn't save to the server.",
+        variant: "destructive",
+      });
+    });
   };
 
   useEffect(() => {
