@@ -4,7 +4,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { seedActivityLog } from "@/shared/data/accounts";
+
 
 export type ActivityActionType =
   | "send_outreach"
@@ -27,7 +27,6 @@ export interface ActivityEntry {
 
 type ActivityRow = Database["public"]["Tables"]["activity_log"]["Row"];
 
-const CURRENT_USER = "You";
 const STORAGE_KEY = "csm.activityLog.v1";
 
 function rowToEntry(row: ActivityRow): ActivityEntry {
@@ -57,28 +56,16 @@ function humanize(iso: string): string {
   return `${days} days ago`;
 }
 
-function seedEntries(): ActivityEntry[] {
-  return seedActivityLog.map((e) => ({
-    id: e.id,
-    action: e.action,
-    type: "seed",
-    account: e.account,
-    user: e.user,
-    timestamp: e.timestamp,
-    timestampISO: new Date().toISOString(),
-  }));
-}
-
 function loadLocal(): ActivityEntry[] {
-  if (typeof window === "undefined") return seedEntries();
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedEntries();
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as ActivityEntry[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return seedEntries();
+    if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    return seedEntries();
+    return [];
   }
 }
 
@@ -92,14 +79,18 @@ function persistLocal(next: ActivityEntry[]) {
 }
 
 let entries: ActivityEntry[] = loadLocal();
+let currentUserLabel = "You";
 const listeners = new Set<(e: ActivityEntry[]) => void>();
 
 function emit() {
   listeners.forEach((l) => l(entries));
 }
 
-// Background hydrate from Supabase on first import.
-(async () => {
+function setCurrentUser(label: string | null) {
+  currentUserLabel = label && label.trim() ? label : "You";
+}
+
+async function hydrateFromCloud() {
   try {
     const { data, error } = await supabase
       .from("activity_log")
@@ -107,20 +98,39 @@ function emit() {
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw error;
-    if (data && data.length > 0) {
-      entries = data.map(rowToEntry);
+    // RLS scopes results to the current CSM. Replace local cache so
+    // entries from a previous user don't leak across sessions.
+    entries = (data ?? []).map(rowToEntry);
+    try {
       persistLocal(entries);
-      emit();
+    } catch {
+      /* non-fatal */
     }
+    emit();
   } catch {
-    // Fall back to whatever loadLocal() gave us — UI stays usable.
+    // Stay with whatever loadLocal() gave us.
   }
-})();
+}
+
+function clearStore() {
+  entries = [];
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* non-fatal */
+    }
+  }
+  emit();
+}
 
 export const activityStore = {
   list(): ActivityEntry[] {
     return entries;
   },
+  hydrate: hydrateFromCloud,
+  clear: clearStore,
+  setCurrentUser,
   subscribe(listener: (e: ActivityEntry[]) => void) {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -136,7 +146,9 @@ export const activityStore = {
     account: string;
     accountId?: string;
     note?: string;
+    userLabel?: string;
   }) {
+    const userLabel = input.userLabel ?? currentUserLabel;
     let entry: ActivityEntry;
     try {
       const { data, error } = await supabase
@@ -147,7 +159,7 @@ export const activityStore = {
           account_name: input.account,
           account_id: input.accountId ?? null,
           note: input.note ?? null,
-          user_label: CURRENT_USER,
+          user_label: userLabel,
         })
         .select()
         .single();
@@ -161,7 +173,7 @@ export const activityStore = {
         account: input.account,
         accountId: input.accountId,
         note: input.note,
-        user: CURRENT_USER,
+        user: userLabel,
         timestamp: "Just now",
         timestampISO: new Date().toISOString(),
       };

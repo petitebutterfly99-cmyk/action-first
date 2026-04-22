@@ -3,11 +3,9 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { mockAccounts } from "./mockAccounts";
 import type { Account } from "./types";
 
 type AccountRow = Database["public"]["Tables"]["accounts"]["Row"];
-type AccountInsert = Database["public"]["Tables"]["accounts"]["Insert"];
 type AccountUpdate = Database["public"]["Tables"]["accounts"]["Update"];
 
 function rowToAccount(row: AccountRow): Account {
@@ -37,27 +35,6 @@ function rowToAccount(row: AccountRow): Account {
   };
 }
 
-function accountToInsert(a: Account): AccountInsert {
-  return {
-    name: a.name,
-    days_since_signup: a.daysSinceSignup,
-    invites_sent: a.invitesSent,
-    active_users: a.activeUsers,
-    last_activity_days: a.lastActivityDays,
-    risk: a.risk,
-    arr: a.arr,
-    plan: a.plan,
-    status: a.status,
-    signup_date: a.signupDate,
-    first_task_created: a.firstTaskCreated,
-    minutes_to_first_task: a.minutesToFirstTask,
-    contact_name: a.contactName,
-    contact_email: a.contactEmail,
-    quote_text: a.quote?.text ?? null,
-    quote_source: a.quote?.source ?? null,
-  };
-}
-
 function accountUpdateToRow(updates: Partial<Account>): AccountUpdate {
   const map: AccountUpdate = {};
   if (updates.name !== undefined) map.name = updates.name;
@@ -83,24 +60,10 @@ function accountUpdateToRow(updates: Partial<Account>): AccountUpdate {
 }
 
 /**
- * Seed the accounts table on first load. Idempotent: if any row exists we
- * skip. Returns true if a seed actually ran (so the caller can refetch).
+ * Fetch accounts visible to the current user. RLS scopes results to the
+ * accounts where assigned_csm_id = auth.uid().
  */
-async function seedIfEmpty(): Promise<boolean> {
-  const { count, error } = await supabase
-    .from("accounts")
-    .select("*", { count: "exact", head: true });
-  if (error) throw error;
-  if ((count ?? 0) > 0) return false;
-
-  const rows = mockAccounts.map(accountToInsert);
-  const { error: insertError } = await supabase.from("accounts").insert(rows);
-  if (insertError) throw insertError;
-  return true;
-}
-
 export async function fetchAccounts(): Promise<Account[]> {
-  await seedIfEmpty();
   const { data, error } = await supabase
     .from("accounts")
     .select("*")

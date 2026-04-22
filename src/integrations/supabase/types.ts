@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           active_users: number
           arr: number
+          assigned_csm_id: string | null
           contact_email: string
           contact_name: string
           created_at: string
@@ -42,6 +43,7 @@ export type Database = {
         Insert: {
           active_users?: number
           arr?: number
+          assigned_csm_id?: string | null
           contact_email: string
           contact_name: string
           created_at?: string
@@ -66,6 +68,7 @@ export type Database = {
         Update: {
           active_users?: number
           arr?: number
+          assigned_csm_id?: string | null
           contact_email?: string
           contact_name?: string
           created_at?: string
@@ -87,7 +90,15 @@ export type Database = {
           status?: Database["public"]["Enums"]["account_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "accounts_assigned_csm_id_fkey"
+            columns: ["assigned_csm_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       activity_log: {
         Row: {
@@ -130,6 +141,33 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string
+          id: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -151,6 +189,7 @@ export type Database = {
         | "snooze"
         | "save_outcome"
         | "seed"
+      app_role: "csm" | "admin"
       risk_level: "high" | "medium" | "low"
     }
     CompositeTypes: {
@@ -294,6 +333,7 @@ export const Constants = {
         "save_outcome",
         "seed",
       ],
+      app_role: ["csm", "admin"],
       risk_level: ["high", "medium", "low"],
     },
   },

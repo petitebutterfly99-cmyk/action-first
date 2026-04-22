@@ -1,1 +1,4 @@
 project_id = "qlgbwapdgzjnoqrhazoo"
+
+[functions.seed-demo-csms]
+verify_jwt = false

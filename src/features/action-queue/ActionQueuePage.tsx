@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/shared/components/AppLayout";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -104,6 +105,8 @@ const RISK_OPTIONS: {
 
 export default function ActionQueuePage() {
   const { toast } = useToast();
+  const { profile, user } = useAuth();
+  const csmLabel = profile?.full_name || user?.email || "You";
   const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -221,7 +224,7 @@ export default function ActionQueuePage() {
         applyBulk((a) => ({
           status: "contacted" as AccountStatus,
           lastOutreachSentAt: sentAt,
-          lastOutreachSentBy: "You",
+          lastOutreachSentBy: csmLabel,
           outreachCount: (a.outreachCount ?? 0) + 1,
         })),
       {
@@ -411,7 +414,7 @@ export default function ActionQueuePage() {
     const rowUpdates: Partial<Account> = {
       status: "contacted" as AccountStatus,
       lastOutreachSentAt: sentAt,
-      lastOutreachSentBy: "You",
+      lastOutreachSentBy: csmLabel,
       outreachCount: (account.outreachCount ?? 0) + 1,
     };
     safeLog(
@@ -761,6 +764,29 @@ export default function ActionQueuePage() {
               />
             ) : sortedAccounts.length === 0 ? (
               (() => {
+                // No accounts at all are assigned to this CSM yet — show
+                // the dedicated "no assigned accounts" empty state instead
+                // of a filter-based one.
+                if (accounts.length === 0) {
+                  return (
+                    <EmptyState
+                      icon={<Inbox className="w-6 h-6 text-muted-foreground" />}
+                      title="No assigned accounts"
+                      body="You don't have any accounts assigned yet."
+                      actions={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            (window.location.href = "mailto:admin@example.com")
+                          }
+                        >
+                          Contact admin
+                        </Button>
+                      }
+                    />
+                  );
+                }
                 const onlyHigh =
                   riskFilter.length === 1 &&
                   riskFilter[0] === "high" &&

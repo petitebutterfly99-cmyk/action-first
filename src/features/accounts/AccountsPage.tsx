@@ -112,7 +112,29 @@ export default function AccountsPage() {
                     </td>
                   </tr>
                 ))
-              : accounts.map((a) => (
+              : accounts.length === 0
+                ? (
+                    <tr>
+                      <td colSpan={10} className="py-12 text-center">
+                        <div className="text-sm font-medium text-foreground mb-1">
+                          No assigned accounts
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-3">
+                          You don't have any accounts assigned yet.
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            (window.location.href = "mailto:admin@example.com")
+                          }
+                        >
+                          Contact admin
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                : accounts.map((a) => (
                   <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="py-2.5 font-medium text-foreground">{a.name}</td>
                     <td className="py-2.5 text-muted-foreground">{a.contactName}</td>
