@@ -3,10 +3,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import ActionQueuePage from "./pages/ActionQueue";
-import AccountsPage from "./pages/Accounts";
-import ActivityLogPage from "./pages/ActivityLog";
-import SettingsPage from "./pages/Settings";
+import ActionQueuePage from "@/features/action-queue/ActionQueuePage";
+import AccountsPage from "@/features/accounts/AccountsPage";
+import ActivityLogPage from "@/features/activity-log/ActivityLogPage";
+import SettingsPage from "@/features/settings/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { AppLayout } from "@/components/AppLayout";
-import { mockAccounts } from "@/data/mockAccounts";
-import { Button } from "@/components/ui/button";
-import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { AppLayout } from "@/shared/components/AppLayout";
+import { mockAccounts } from "@/shared/data/accounts";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,12 +17,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
-// Source of truth for what's currently in the Action Queue. In a real app
-// this would consult the same store as ActionQueue. For the prototype we
-// expose a single helper so both screens stay in sync.
+/**
+ * Source of truth for what's currently in the Action Queue. In a real app
+ * this would consult the same store as ActionQueue. For the prototype we
+ * expose a single helper so both screens stay in sync.
+ */
 function isAccountInQueue(id: string): boolean {
-  // Every mock account is currently in the queue, but keep the predicate so
-  // the "not in queue" UX path stays wired and demonstrable.
   return mockAccounts.some((a) => a.id === id);
 }
 
@@ -69,7 +69,6 @@ export default function AccountsPage() {
 
   const handleViewAllInQueue = () => {
     setNotInQueueAccount(null);
-    // Clear all filters by passing a hint the queue can read.
     navigate(`/?reset=1`);
   };
 
@@ -99,7 +98,9 @@ export default function AccountsPage() {
                 <td className="py-2.5 text-muted-foreground">{a.plan}</td>
                 <td className="py-2.5 text-muted-foreground">${(a.arr / 1000).toFixed(0)}k</td>
                 <td className="py-2.5">{a.daysSinceSignup}</td>
-                <td className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}>
+                <td
+                  className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}
+                >
                   {a.invitesSent}
                 </td>
                 <td className="py-2.5">{a.activeUsers}</td>
