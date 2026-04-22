@@ -79,10 +79,15 @@ function persistLocal(next: ActivityEntry[]) {
 }
 
 let entries: ActivityEntry[] = loadLocal();
+let currentUserLabel = "You";
 const listeners = new Set<(e: ActivityEntry[]) => void>();
 
 function emit() {
   listeners.forEach((l) => l(entries));
+}
+
+function setCurrentUser(label: string | null) {
+  currentUserLabel = label && label.trim() ? label : "You";
 }
 
 async function hydrateFromCloud() {
@@ -125,6 +130,7 @@ export const activityStore = {
   },
   hydrate: hydrateFromCloud,
   clear: clearStore,
+  setCurrentUser,
   subscribe(listener: (e: ActivityEntry[]) => void) {
     listeners.add(listener);
     return () => listeners.delete(listener);
@@ -142,7 +148,7 @@ export const activityStore = {
     note?: string;
     userLabel?: string;
   }) {
-    const userLabel = input.userLabel ?? "You";
+    const userLabel = input.userLabel ?? currentUserLabel;
     let entry: ActivityEntry;
     try {
       const { data, error } = await supabase
