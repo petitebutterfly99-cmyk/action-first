@@ -4,7 +4,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { seedActivityLog } from "@/shared/data/accounts";
+
 
 export type ActivityActionType =
   | "send_outreach"
@@ -56,28 +56,16 @@ function humanize(iso: string): string {
   return `${days} days ago`;
 }
 
-function seedEntries(): ActivityEntry[] {
-  return seedActivityLog.map((e) => ({
-    id: e.id,
-    action: e.action,
-    type: "seed",
-    account: e.account,
-    user: e.user,
-    timestamp: e.timestamp,
-    timestampISO: new Date().toISOString(),
-  }));
-}
-
 function loadLocal(): ActivityEntry[] {
-  if (typeof window === "undefined") return seedEntries();
+  if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedEntries();
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as ActivityEntry[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return seedEntries();
+    if (!Array.isArray(parsed)) return [];
     return parsed;
   } catch {
-    return seedEntries();
+    return [];
   }
 }
 
