@@ -26,8 +26,11 @@ export type Database = {
           id: string
           invites_sent: number
           last_activity_days: number
+          last_outreach_sent_at: string | null
+          last_outreach_sent_by: string | null
           minutes_to_first_task: number | null
           name: string
+          outreach_count: number
           plan: string
           quote_source: string | null
           quote_text: string | null
@@ -47,8 +50,11 @@ export type Database = {
           id?: string
           invites_sent?: number
           last_activity_days?: number
+          last_outreach_sent_at?: string | null
+          last_outreach_sent_by?: string | null
           minutes_to_first_task?: number | null
           name: string
+          outreach_count?: number
           plan?: string
           quote_source?: string | null
           quote_text?: string | null
@@ -68,8 +74,11 @@ export type Database = {
           id?: string
           invites_sent?: number
           last_activity_days?: number
+          last_outreach_sent_at?: string | null
+          last_outreach_sent_by?: string | null
           minutes_to_first_task?: number | null
           name?: string
+          outreach_count?: number
           plan?: string
           quote_source?: string | null
           quote_text?: string | null
