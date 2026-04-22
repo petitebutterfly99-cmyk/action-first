@@ -27,7 +27,6 @@ export interface ActivityEntry {
 
 type ActivityRow = Database["public"]["Tables"]["activity_log"]["Row"];
 
-const CURRENT_USER = "You";
 const STORAGE_KEY = "csm.activityLog.v1";
 
 function rowToEntry(row: ActivityRow): ActivityEntry {
@@ -136,7 +135,9 @@ export const activityStore = {
     account: string;
     accountId?: string;
     note?: string;
+    userLabel?: string;
   }) {
+    const userLabel = input.userLabel ?? "You";
     let entry: ActivityEntry;
     try {
       const { data, error } = await supabase
@@ -147,7 +148,7 @@ export const activityStore = {
           account_name: input.account,
           account_id: input.accountId ?? null,
           note: input.note ?? null,
-          user_label: CURRENT_USER,
+          user_label: userLabel,
         })
         .select()
         .single();
@@ -161,7 +162,7 @@ export const activityStore = {
         account: input.account,
         accountId: input.accountId,
         note: input.note,
-        user: CURRENT_USER,
+        user: userLabel,
         timestamp: "Just now",
         timestampISO: new Date().toISOString(),
       };
