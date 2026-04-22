@@ -1,6 +1,8 @@
-import { ListChecks, Building2, Clock, Settings } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { ListChecks, Building2, Clock, Settings, LogOut } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { NavLink } from "./NavLink";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { title: "Action Queue", url: "/", icon: ListChecks },
@@ -9,8 +11,25 @@ const navItems = [
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 0 || !parts[0]) return "?";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0] + parts[parts.length - 1]![0]).toUpperCase();
+}
+
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, user, signOut } = useAuth();
+
+  const displayName = profile?.full_name || user?.email || "Signed-in user";
+  const displayEmail = profile?.email || user?.email || "";
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <aside className="w-60 min-h-screen flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col">
@@ -50,16 +69,27 @@ export function AppSidebar() {
           );
         })}
       </nav>
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-medium text-sidebar-accent-foreground">
-            JD
+      <div className="p-4 border-t border-sidebar-border space-y-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-medium text-sidebar-accent-foreground shrink-0">
+            {initials(displayName)}
           </div>
-          <div className="text-xs">
-            <div className="font-medium text-sidebar-accent-foreground">Jane Doe</div>
-            <div className="text-sidebar-foreground">CSM</div>
+          <div className="text-xs min-w-0">
+            <div className="font-medium text-sidebar-accent-foreground truncate">
+              {displayName}
+            </div>
+            <div className="text-sidebar-foreground truncate">{displayEmail}</div>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleSignOut}
+          className="w-full justify-start h-8 text-xs text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+        >
+          <LogOut className="w-3.5 h-3.5 mr-2" />
+          Sign out
+        </Button>
       </div>
     </aside>
   );
