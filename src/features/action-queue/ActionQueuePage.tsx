@@ -45,6 +45,7 @@ import {
   STATUS_LABEL,
   computeRiskCounts,
   computeStatusCounts,
+  countContactedToday,
   pickNextBestCandidate,
   selectQueue,
 } from "./queueLogic";
@@ -213,9 +214,16 @@ export default function ActionQueuePage() {
   const handleBulkSendOutreach = () => {
     const ids = Array.from(selectedIds);
     const targets = accounts.filter((a) => ids.includes(a.id));
+    const sentAt = new Date().toISOString();
     safeLog(
       toast,
-      () => applyBulk(() => ({ status: "contacted" as AccountStatus })),
+      () =>
+        applyBulk((a) => ({
+          status: "contacted" as AccountStatus,
+          lastOutreachSentAt: sentAt,
+          lastOutreachSentBy: "You",
+          outreachCount: (a.outreachCount ?? 0) + 1,
+        })),
       {
         action: `Sent outreach to ${ids.length} accounts`,
         type: "send_outreach",
