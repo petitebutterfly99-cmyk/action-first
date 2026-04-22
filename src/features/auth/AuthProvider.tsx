@@ -33,7 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("id, full_name, email, role")
       .eq("id", uid)
       .maybeSingle();
-    setProfile((data as Profile) ?? null);
+    const next = (data as Profile) ?? null;
+    setProfile(next);
+    activityStore.setCurrentUser(next?.full_name || null);
   };
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, 0);
       } else {
         setProfile(null);
+        activityStore.setCurrentUser(null);
         if (event === "SIGNED_OUT") activityStore.clear();
       }
     });
