@@ -301,6 +301,10 @@ export default function ActionQueuePage() {
   const needsActionCount = accounts.filter(
     (a) => a.status === "needs_action" && a.risk !== "low",
   ).length;
+  // Aggregate "Contacted Today" — derived from the same row-level
+  // last_outreach_sent_at timestamp that drives the row label. Re-sending
+  // to the same account today does not double-count.
+  const contactedTodayCount = useMemo(() => countContactedToday(accounts), [accounts]);
 
   const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
@@ -715,7 +719,7 @@ export default function ActionQueuePage() {
             <span>{accounts.filter((a) => a.risk === "high").length} high risk</span>
             <span>·</span>
             <span>
-              {accounts.filter((a) => a.status === "contacted").length} contacted today
+              {contactedTodayCount} contacted today
             </span>
             {snoozedCount > 0 && (
               <>
