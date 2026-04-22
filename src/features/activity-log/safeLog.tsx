@@ -16,38 +16,40 @@ export function safeLog(
   // 1. Perform the user-facing action. If it fails, do not log.
   action();
 
-  // 2. Attempt log write. The store only commits on persist success, so a
-  //    failure here means no Activity Log entry exists yet.
-  const tryWrite = (): boolean => {
-    try {
-      activityStore.log(entry);
-      return true;
-    } catch {
-      return false;
-    }
-  };
+  // 2. Attempt log write (Supabase first, localStorage fallback). The store
+  //    only commits in-memory after persistence, so a rejection here means
+  //    no Activity Log entry exists yet.
+  const tryWrite = (): Promise<boolean> =>
+    activityStore.log(entry).then(
+      () => true,
+      () => false,
+    );
 
-  if (tryWrite()) return;
+  tryWrite().then((ok) => {
+    if (ok) return;
 
-  // 3. Show a non-blocking warning with a retry affordance.
-  const t = toast({
-    title: "Heads up",
-    description: "Action completed, but Activity Log could not be updated.",
-    variant: "destructive",
-    duration: 10000,
-    action: (
-      <ToastAction
-        altText="Retry log update"
-        onClick={(e) => {
-          e.preventDefault();
-          if (tryWrite()) {
-            t.dismiss();
-            toast({ title: "Activity Log updated", duration: 2500 });
-          }
-        }}
-      >
-        Retry log update
-      </ToastAction>
-    ),
+    // 3. Show a non-blocking warning with a retry affordance.
+    const t = toast({
+      title: "Heads up",
+      description: "Action completed, but Activity Log could not be updated.",
+      variant: "destructive",
+      duration: 10000,
+      action: (
+        <ToastAction
+          altText="Retry log update"
+          onClick={(e) => {
+            e.preventDefault();
+            tryWrite().then((retryOk) => {
+              if (retryOk) {
+                t.dismiss();
+                toast({ title: "Activity Log updated", duration: 2500 });
+              }
+            });
+          }}
+        >
+          Retry log update
+        </ToastAction>
+      ),
+    });
   });
 }
