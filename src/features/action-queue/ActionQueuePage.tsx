@@ -131,16 +131,21 @@ export default function ActionQueuePage() {
   const loadQueue = () => {
     setIsLoading(true);
     setLoadError(null);
-    const t = setTimeout(() => {
-      try {
-        setAccounts(mockAccounts);
+    let cancelled = false;
+    fetchAccounts()
+      .then((rows) => {
+        if (cancelled) return;
+        setAccounts(rows);
         setIsLoading(false);
-      } catch {
+      })
+      .catch(() => {
+        if (cancelled) return;
         setLoadError("We ran into a problem loading this queue.");
         setIsLoading(false);
-      }
-    }, 450);
-    return () => clearTimeout(t);
+      });
+    return () => {
+      cancelled = true;
+    };
   };
 
   useEffect(() => {
