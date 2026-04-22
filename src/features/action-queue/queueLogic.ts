@@ -101,3 +101,22 @@ export const STATUS_LABEL: Record<"all" | AccountStatus, string> = {
   follow_up_needed: "Follow-up Needed",
   needs_action: "Needs Action",
 };
+
+/** True when the given ISO timestamp falls on the local current date. */
+export function isSameLocalDay(iso: string | null | undefined, ref: Date = new Date()): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return (
+    d.getFullYear() === ref.getFullYear() &&
+    d.getMonth() === ref.getMonth() &&
+    d.getDate() === ref.getDate()
+  );
+}
+
+/** Aggregate count of unique accounts whose last_outreach_sent_at is today. */
+export function countContactedToday(accounts: Account[], ref: Date = new Date()): number {
+  return accounts.reduce(
+    (n, a) => (isSameLocalDay(a.lastOutreachSentAt, ref) ? n + 1 : n),
+    0,
+  );
+}
