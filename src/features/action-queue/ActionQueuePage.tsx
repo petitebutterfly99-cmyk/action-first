@@ -33,7 +33,9 @@ import {
   Account,
   AccountStatus,
   RiskLevel,
-  mockAccounts,
+  bulkUpdateAccountsInDb,
+  fetchAccounts,
+  updateAccountInDb,
 } from "@/shared/data/accounts";
 
 import { safeLog } from "@/features/activity-log/safeLog";
@@ -129,16 +131,21 @@ export default function ActionQueuePage() {
   const loadQueue = () => {
     setIsLoading(true);
     setLoadError(null);
-    const t = setTimeout(() => {
-      try {
-        setAccounts(mockAccounts);
+    let cancelled = false;
+    fetchAccounts()
+      .then((rows) => {
+        if (cancelled) return;
+        setAccounts(rows);
         setIsLoading(false);
-      } catch {
+      })
+      .catch(() => {
+        if (cancelled) return;
         setLoadError("We ran into a problem loading this queue.");
         setIsLoading(false);
-      }
-    }, 450);
-    return () => clearTimeout(t);
+      });
+    return () => {
+      cancelled = true;
+    };
   };
 
   useEffect(() => {
@@ -174,13 +181,33 @@ export default function ActionQueuePage() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const applyBulk = (updater: (a: Account) => Partial<Account> | null) => {
+    const updatesById = new Map<string, Partial<Account>>();
     setAccounts((prev) =>
       prev.map((a) => {
         if (!selectedIds.has(a.id)) return a;
         const u = updater(a);
-        return u ? { ...a, ...u } : a;
+        if (!u) return a;
+        updatesById.set(a.id, u);
+        return { ...a, ...u };
       }),
     );
+    // Group identical updates and fire one bulk DB write per group.
+    const groups = new Map<string, { ids: string[]; updates: Partial<Account> }>();
+    updatesById.forEach((updates, id) => {
+      const key = JSON.stringify(updates);
+      const existing = groups.get(key);
+      if (existing) existing.ids.push(id);
+      else groups.set(key, { ids: [id], updates });
+    });
+    groups.forEach(({ ids, updates }) => {
+      bulkUpdateAccountsInDb(ids, updates).catch(() => {
+        toast({
+          title: "Couldn't sync changes",
+          description: "Some account updates didn't save to the server.",
+          variant: "destructive",
+        });
+      });
+    });
   };
 
   const handleBulkSendOutreach = () => {
@@ -308,6 +335,13 @@ export default function ActionQueuePage() {
     if (selectedAccount?.id === id) {
       setSelectedAccount((prev) => (prev ? { ...prev, ...updates } : null));
     }
+    updateAccountInDb(id, updates).catch(() => {
+      toast({
+        title: "Couldn't sync change",
+        description: "This update didn't save to the server.",
+        variant: "destructive",
+      });
+    });
   };
 
   useEffect(() => {

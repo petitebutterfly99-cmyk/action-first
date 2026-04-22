@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/shared/components/AppLayout";
-import { mockAccounts } from "@/shared/data/accounts";
+import { fetchAccounts, type Account } from "@/shared/data/accounts";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,21 +18,33 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
-/**
- * Source of truth for what's currently in the Action Queue. In a real app
- * this would consult the same store as ActionQueue. For the prototype we
- * expose a single helper so both screens stay in sync.
- */
-function isAccountInQueue(id: string): boolean {
-  return mockAccounts.some((a) => a.id === id);
-}
-
 export default function AccountsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [notInQueueAccount, setNotInQueueAccount] = useState<{ id: string; name: string } | null>(
     null,
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAccounts()
+      .then((rows) => {
+        if (!cancelled) {
+          setAccounts(rows);
+          setIsLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
   const navigateToQueue = (id: string) => {
     try {
@@ -91,42 +104,50 @@ export default function AccountsPage() {
             </tr>
           </thead>
           <tbody>
-            {mockAccounts.map((a) => (
-              <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30">
-                <td className="py-2.5 font-medium text-foreground">{a.name}</td>
-                <td className="py-2.5 text-muted-foreground">{a.contactName}</td>
-                <td className="py-2.5 text-muted-foreground">{a.plan}</td>
-                <td className="py-2.5 text-muted-foreground">${(a.arr / 1000).toFixed(0)}k</td>
-                <td className="py-2.5">{a.daysSinceSignup}</td>
-                <td
-                  className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}
-                >
-                  {a.invitesSent}
-                </td>
-                <td className="py-2.5">{a.activeUsers}</td>
-                <td className="py-2.5">
-                  <span
-                    className={`text-xs ${a.risk === "high" ? "text-risk-high" : a.risk === "medium" ? "text-risk-medium" : "text-risk-low"}`}
-                  >
-                    {a.risk}
-                  </span>
-                </td>
-                <td className="py-2.5 capitalize text-muted-foreground">
-                  {a.status.replace(/_/g, " ")}
-                </td>
-                <td className="py-2.5 text-right">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-primary hover:text-primary"
-                    onClick={() => handleViewInQueue(a.id, a.name)}
-                  >
-                    View in Action Queue
-                    <ArrowUpRight className="w-3 h-3 ml-1" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {isLoading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="py-2.5" colSpan={10}>
+                      <Skeleton className="h-4 w-full" />
+                    </td>
+                  </tr>
+                ))
+              : accounts.map((a) => (
+                  <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30">
+                    <td className="py-2.5 font-medium text-foreground">{a.name}</td>
+                    <td className="py-2.5 text-muted-foreground">{a.contactName}</td>
+                    <td className="py-2.5 text-muted-foreground">{a.plan}</td>
+                    <td className="py-2.5 text-muted-foreground">${(a.arr / 1000).toFixed(0)}k</td>
+                    <td className="py-2.5">{a.daysSinceSignup}</td>
+                    <td
+                      className={`py-2.5 ${a.invitesSent === 0 ? "text-risk-high font-medium" : ""}`}
+                    >
+                      {a.invitesSent}
+                    </td>
+                    <td className="py-2.5">{a.activeUsers}</td>
+                    <td className="py-2.5">
+                      <span
+                        className={`text-xs ${a.risk === "high" ? "text-risk-high" : a.risk === "medium" ? "text-risk-medium" : "text-risk-low"}`}
+                      >
+                        {a.risk}
+                      </span>
+                    </td>
+                    <td className="py-2.5 capitalize text-muted-foreground">
+                      {a.status.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2.5 text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-primary hover:text-primary"
+                        onClick={() => handleViewInQueue(a.id, a.name)}
+                      >
+                        View in Action Queue
+                        <ArrowUpRight className="w-3 h-3 ml-1" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
           </tbody>
         </table>
       </div>
