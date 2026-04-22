@@ -1,23 +1,33 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { Account, AccountStatus } from "@/data/mockAccounts";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import type { Account } from "@/shared/data/accounts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-export type OutreachOutcomeStatus = "contacted" | "no_response" | "follow_up_needed";
-
-export interface OutreachOutcome {
-  status: OutreachOutcomeStatus;
-  followUpDate: Date | null;
-  notes: string;
-}
+import {
+  OutreachOutcome,
+  OutreachOutcomeStatus,
+  STATUS_OPTIONS,
+} from "./outcomeTypes";
 
 interface OutcomeModalProps {
   account: Account | null;
@@ -26,12 +36,6 @@ interface OutcomeModalProps {
   onSave: (account: Account, outcome: OutreachOutcome) => void;
   onSkip: (account: Account) => void;
 }
-
-const STATUS_OPTIONS: { value: OutreachOutcomeStatus; label: string; mapsTo: AccountStatus | null }[] = [
-  { value: "contacted", label: "Contacted", mapsTo: "contacted" },
-  { value: "no_response", label: "No response", mapsTo: null },
-  { value: "follow_up_needed", label: "Follow-up needed", mapsTo: "contacted" },
-];
 
 export function OutcomeModal({ account, open, onClose, onSave, onSkip }: OutcomeModalProps) {
   const [status, setStatus] = useState<OutreachOutcomeStatus>("contacted");
@@ -65,7 +69,9 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="outcome-status" className="text-xs font-medium">Status</Label>
+            <Label htmlFor="outcome-status" className="text-xs font-medium">
+              Status
+            </Label>
             <Select value={status} onValueChange={(v) => setStatus(v as OutreachOutcomeStatus)}>
               <SelectTrigger id="outcome-status" className="h-9 text-sm">
                 <SelectValue />
@@ -136,8 +142,5 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
   );
 }
 
-export const STATUS_TO_ACCOUNT_STATUS: Record<OutreachOutcomeStatus, AccountStatus | null> = {
-  contacted: "contacted",
-  no_response: null,
-  follow_up_needed: "contacted",
-};
+export type { OutreachOutcome, OutreachOutcomeStatus } from "./outcomeTypes";
+export { STATUS_TO_ACCOUNT_STATUS } from "./outcomeTypes";

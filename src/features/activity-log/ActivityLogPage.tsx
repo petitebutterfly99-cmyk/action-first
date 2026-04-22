@@ -1,6 +1,6 @@
-import { AppLayout } from "@/components/AppLayout";
-import { useActivityLog } from "@/hooks/useActivityLog";
 import { Clock } from "lucide-react";
+import { AppLayout } from "@/shared/components/AppLayout";
+import { useActivityLog } from "./useActivityLog";
 
 export default function ActivityLogPage() {
   const entries = useActivityLog();
@@ -11,7 +11,10 @@ export default function ActivityLogPage() {
           <p className="text-sm text-muted-foreground">No activity yet.</p>
         )}
         {entries.map((entry) => (
-          <div key={entry.id} className="flex items-start gap-3 bg-card border rounded-md px-4 py-3">
+          <div
+            key={entry.id}
+            className="flex items-start gap-3 bg-card border rounded-md px-4 py-3"
+          >
             <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
             <div className="flex-1 text-sm">
               <div>

@@ -1,24 +1,4 @@
-export type RiskLevel = "high" | "medium" | "low";
-export type AccountStatus = "needs_action" | "contacted" | "reviewed" | "snoozed" | "follow_up_needed";
-
-export interface Account {
-  id: string;
-  name: string;
-  daysSinceSignup: number;
-  invitesSent: number;
-  activeUsers: number;
-  lastActivityDays: number;
-  risk: RiskLevel;
-  arr: number;
-  plan: string;
-  status: AccountStatus;
-  signupDate: string;
-  firstTaskCreated: boolean;
-  minutesToFirstTask: number | null;
-  contactName: string;
-  contactEmail: string;
-  quote?: { text: string; source: string };
-}
+import type { Account, AccountStatus, RiskLevel } from "./types";
 
 const quotes = [
   { text: "I couldn't figure out where to invite my team", source: "Churned user, Day 3" },
@@ -64,7 +44,9 @@ function generateAccounts(): Account[] {
     const hasInvited = Math.random() < 0.12; // only 12% invite
     const invitesSent = hasInvited ? Math.floor(Math.random() * 4) + 1 : 0;
     const activeUsers = hasInvited ? Math.floor(Math.random() * 3) + 2 : 1;
-    const lastActivityDays = hasInvited ? Math.floor(Math.random() * 2) : Math.floor(Math.random() * 5) + 1;
+    const lastActivityDays = hasInvited
+      ? Math.floor(Math.random() * 2)
+      : Math.floor(Math.random() * 5) + 1;
     const firstTaskCreated = Math.random() < 0.3;
     const minutesToFirstTask = firstTaskCreated ? Math.floor(Math.random() * 120) + 5 : null;
 
@@ -75,7 +57,8 @@ function generateAccounts(): Account[] {
     const arr = [1200, 3600, 6000, 12000, 24000, 48000][Math.floor(Math.random() * 6)];
     const plan = plans[Math.floor(Math.random() * plans.length)];
     const contact = contacts[i % contacts.length];
-    const domain = name.toLowerCase().replace(/\s+/g, "").replace(/[^a-z]/g, "") + ".com";
+    const domain =
+      name.toLowerCase().replace(/\s+/g, "").replace(/[^a-z]/g, "") + ".com";
 
     return {
       id: `acc-${i + 1}`,
@@ -100,7 +83,7 @@ function generateAccounts(): Account[] {
 
 export const mockAccounts = generateAccounts();
 
-export const activityLog = [
+export const seedActivityLog = [
   { id: "1", action: "Sent outreach", account: "Acme Corp", user: "You", timestamp: "2 hours ago" },
   { id: "2", action: "Marked as reviewed", account: "CloudStack Inc", user: "You", timestamp: "3 hours ago" },
   { id: "3", action: "Sent invite prompt", account: "DataPrime", user: "You", timestamp: "Yesterday" },

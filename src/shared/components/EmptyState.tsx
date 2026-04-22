@@ -7,6 +7,7 @@ interface EmptyStateProps {
   actions?: ReactNode;
 }
 
+/** Generic empty/zero-data slot used across the queue and lists. */
 export function EmptyState({ icon, title, body, actions }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-16 px-6 border border-dashed border-border rounded-lg bg-card">

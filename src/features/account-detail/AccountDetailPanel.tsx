@@ -1,21 +1,27 @@
-import { Account } from "@/data/mockAccounts";
+import type { Account } from "@/shared/data/accounts";
 import {
-  Calendar,
-  Users,
-  Zap,
-  MousePointer,
-  CheckCircle2,
-  XCircle,
   AlertTriangle,
-  LogIn,
-  ListChecks,
-  UserPlus,
-  Clock,
+  Calendar,
+  CheckCircle2,
+  Users,
+  XCircle,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import {
+  buildInsights,
+  buildTimeline,
+  TimelineState,
+} from "./timeline";
 
 interface AccountDetailPanelProps {
   account: Account;
@@ -23,91 +29,10 @@ interface AccountDetailPanelProps {
   onSendOutreach: (account: Account) => void;
 }
 
-type TimelineState = "done" | "missing" | "warning";
-
-interface TimelineEvent {
-  icon: typeof LogIn;
-  label: string;
-  detail: string;
-  day: string;
-  state: TimelineState;
-}
-
-function buildTimeline(account: Account): TimelineEvent[] {
-  const events: TimelineEvent[] = [];
-
-  events.push({
-    icon: LogIn,
-    label: "Signed up",
-    detail: account.signupDate,
-    day: "Day 0",
-    state: "done",
-  });
-
-  events.push({
-    icon: Clock,
-    label: "First session",
-    detail: "Logged in shortly after signup",
-    day: "Day 0",
-    state: "done",
-  });
-
-  events.push({
-    icon: ListChecks,
-    label: account.firstTaskCreated ? "First task created" : "No tasks created",
-    detail: account.firstTaskCreated
-      ? `${account.minutesToFirstTask} min after signup`
-      : "User has not created any tasks yet",
-    day: account.firstTaskCreated ? "Day 0" : "—",
-    state: account.firstTaskCreated ? "done" : "missing",
-  });
-
-  events.push({
-    icon: UserPlus,
-    label: account.invitesSent > 0 ? "Teammate invited" : "No teammates invited",
-    detail:
-      account.invitesSent > 0
-        ? `${account.invitesSent} invite${account.invitesSent > 1 ? "s" : ""} sent · ${account.activeUsers} active user${account.activeUsers > 1 ? "s" : ""}`
-        : "Solo workspace — strongest churn signal",
-    day: account.invitesSent > 0 ? `Day 1` : "—",
-    state: account.invitesSent > 0 ? "done" : "missing",
-  });
-
-  // Activity gap detection
-  if (account.lastActivityDays >= 2) {
-    const gapStart = Math.max(1, account.daysSinceSignup - account.lastActivityDays);
-    events.push({
-      icon: AlertTriangle,
-      label: "Activity gap detected",
-      detail: `No activity between Day ${gapStart}–${account.daysSinceSignup}`,
-      day: `Day ${gapStart}+`,
-      state: "warning",
-    });
-  } else {
-    events.push({
-      icon: MousePointer,
-      label: "Recent activity",
-      detail: account.lastActivityDays === 0 ? "Active today" : `Last seen ${account.lastActivityDays}d ago`,
-      day: `Day ${account.daysSinceSignup}`,
-      state: "done",
-    });
-  }
-
-  return events;
-}
-
-function buildInsights(account: Account): string[] {
-  const insights: string[] = [];
-  if (account.lastActivityDays >= 2) {
-    const gapStart = Math.max(1, account.daysSinceSignup - account.lastActivityDays);
-    insights.push(`No activity between Day ${gapStart}–${account.daysSinceSignup}`);
-  }
-  if (account.invitesSent === 0) insights.push("No teammates invited yet");
-  if (!account.firstTaskCreated) insights.push("No tasks created");
-  return insights;
-}
-
-const STATE_STYLES: Record<TimelineState, { dot: string; icon: string; iconBg: string; text: string }> = {
+const STATE_STYLES: Record<
+  TimelineState,
+  { dot: string; icon: string; iconBg: string; text: string }
+> = {
   done: {
     dot: "bg-[hsl(var(--risk-low))]",
     icon: "text-[hsl(var(--risk-low))]",
@@ -128,7 +53,11 @@ const STATE_STYLES: Record<TimelineState, { dot: string; icon: string; iconBg: s
   },
 };
 
-export function AccountDetailPanel({ account, onClose, onSendOutreach }: AccountDetailPanelProps) {
+export function AccountDetailPanel({
+  account,
+  onClose,
+  onSendOutreach,
+}: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
 
@@ -168,11 +97,16 @@ export function AccountDetailPanel({ account, onClose, onSendOutreach }: Account
               <div className="rounded-md border border-[hsl(var(--risk-high))]/30 bg-[hsl(var(--badge-urgent-bg))]/40 p-3">
                 <div className="flex items-center gap-1.5 mb-2">
                   <AlertTriangle className="w-3.5 h-3.5 text-[hsl(var(--risk-high))]" />
-                  <span className="text-xs font-semibold text-foreground">Why this account is at risk</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    Why this account is at risk
+                  </span>
                 </div>
                 <ul className="space-y-1">
                   {insights.map((insight) => (
-                    <li key={insight} className="flex items-start gap-2 text-xs text-foreground">
+                    <li
+                      key={insight}
+                      className="flex items-start gap-2 text-xs text-foreground"
+                    >
                       <XCircle className="w-3 h-3 text-[hsl(var(--risk-high))] mt-0.5 shrink-0" />
                       <span>{insight}</span>
                     </li>
@@ -187,7 +121,6 @@ export function AccountDetailPanel({ account, onClose, onSendOutreach }: Account
                 Account Timeline
               </h3>
               <div className="relative">
-                {/* vertical rail */}
                 <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" aria-hidden />
                 <ol className="space-y-4">
                   {events.map((event, i) => {
@@ -205,8 +138,12 @@ export function AccountDetailPanel({ account, onClose, onSendOutreach }: Account
                         </div>
                         <div className="flex-1 pt-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium text-foreground truncate">{event.label}</div>
-                            <span className="text-[10px] text-muted-foreground shrink-0">{event.day}</span>
+                            <div className="text-sm font-medium text-foreground truncate">
+                              {event.label}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground shrink-0">
+                              {event.day}
+                            </span>
                           </div>
                           <div className={cn("text-xs mt-0.5", styles.text)}>{event.detail}</div>
                         </div>
@@ -225,7 +162,8 @@ export function AccountDetailPanel({ account, onClose, onSendOutreach }: Account
                   : "This user hasn't created any tasks. Users who don't activate within 5 days churn at 82%."}
               </p>
               <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                Only 12% of users invite a teammate in the first 3 days. Accounts with invites retain at 68% vs 22% without.
+                Only 12% of users invite a teammate in the first 3 days. Accounts with invites
+                retain at 68% vs 22% without.
               </p>
             </div>
 

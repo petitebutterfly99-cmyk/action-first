@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { activityStore, ActivityEntry } from "@/data/activityStore";
+import { activityStore, ActivityEntry } from "./activityStore";
 
+/** Subscribes to the activity store; returns the current list of entries. */
 export function useActivityLog(): ActivityEntry[] {
   const [entries, setEntries] = useState<ActivityEntry[]>(() => activityStore.list());
   useEffect(() => {

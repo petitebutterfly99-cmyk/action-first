@@ -1,4 +1,4 @@
-import { AppLayout } from "@/components/AppLayout";
+import { AppLayout } from "@/shared/components/AppLayout";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -9,7 +9,9 @@ export default function SettingsPage() {
         <div className="bg-card border rounded-lg p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground">Notification Preferences</h3>
           <div className="flex items-center justify-between">
-            <Label className="text-sm text-muted-foreground">Email alerts for high-risk accounts</Label>
+            <Label className="text-sm text-muted-foreground">
+              Email alerts for high-risk accounts
+            </Label>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">

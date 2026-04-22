@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, Copy, Loader2, RefreshCw } from "lucide-react";
-import { Account } from "@/data/mockAccounts";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import type { Account } from "@/shared/data/accounts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { buildDefaultTemplate, FALLBACK_PLACEHOLDER } from "./template";
+import {
+  GENERATION_TIMEOUT_MS,
+  generateSuggestedMessage,
+  performSend,
+} from "./outreachApi";
 
 interface OutreachModalProps {
   account: Account | null;
@@ -14,46 +26,6 @@ interface OutreachModalProps {
 }
 
 type SendState = "idle" | "sending" | "error";
-
-const FALLBACK_PLACEHOLDER =
-  "Write a short outreach note to help this customer invite a teammate";
-
-// Always-available default so the textarea is never empty, regardless of AI outcome.
-function buildDefaultTemplate(account: Account): string {
-  const first = account.contactName?.split(" ")[0];
-  const greeting = first ? `Hey ${first}` : "Hey";
-  return `${greeting} — most teams see value once they invite a teammate. Want help getting your team set up?`;
-}
-
-// Simulated generator — variable latency + occasional failures so timeout/fallback paths are real.
-function generateSuggestedMessage(account: Account): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Random latency 300ms–4500ms so the 2s timeout is exercised regularly.
-    const latency = 300 + Math.random() * 4200;
-    setTimeout(() => {
-      if (Math.random() < 0.15) {
-        reject(new Error("generation_failed"));
-        return;
-      }
-      const first = account.contactName?.split(" ")[0] ?? "there";
-      resolve(
-        `Hey ${first} — most teams see value once they invite a teammate. Want help getting your team set up?`,
-      );
-    }, latency);
-  });
-}
-
-const GENERATION_TIMEOUT_MS = 2000;
-
-// Simulated send — fails ~30% of the time so retry/copy paths can be exercised.
-function performSend(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() < 0.3) reject(new Error("send_failed"));
-      else resolve();
-    }, 1200);
-  });
-}
 
 export function OutreachModal({ account, open, onClose, onSend }: OutreachModalProps) {
   const { toast } = useToast();
@@ -124,8 +96,6 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
 
   const handleRetryGeneration = () => {
     if (!account) return;
-    // If the user hasn't authored their own message, reset the typed flag so a
-    // successful retry can replace the default template with the AI suggestion.
     if (!userTypedRef.current || message === buildDefaultTemplate(account)) {
       userTypedRef.current = false;
     }
@@ -223,7 +193,9 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
             <div className="flex items-start justify-between gap-2 text-xs rounded-md border border-border bg-muted/50 p-2 text-muted-foreground">
               <div className="flex items-start gap-2">
                 <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-medium))] shrink-0" />
-                <span>We couldn't generate a suggestion right now. You can still edit this message.</span>
+                <span>
+                  We couldn't generate a suggestion right now. You can still edit this message.
+                </span>
               </div>
               <Button
                 size="sm"

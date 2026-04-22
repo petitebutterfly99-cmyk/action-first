@@ -1,7 +1,22 @@
-import { Account, RiskLevel } from "@/data/mockAccounts";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import type { Account, RiskLevel } from "@/shared/data/accounts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Sparkles, AlertTriangle, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  AlertTriangle,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 
 export type NextBestMode = "ready" | "loading" | "done" | "error";
 
@@ -17,6 +32,7 @@ interface NextBestAccountModalProps {
   onReturnToQueue?: () => void;
 }
 
+/** Human-readable reason text used in the ready state. Pure presentation helper. */
 function riskReason(account: Account): string {
   if (account.invitesSent === 0)
     return `No teammates invited after ${account.daysSinceSignup} day${account.daysSinceSignup > 1 ? "s" : ""}`;
@@ -79,7 +95,8 @@ export function NextBestAccountModal({
               <DialogTitle className="text-base">You're done for now</DialogTitle>
             </div>
             <DialogDescription className="text-xs">
-              There are no more accounts left in this queue. You've handled all accounts in the current view.
+              There are no more accounts left in this queue. You've handled all accounts in the
+              current view.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border border-[hsl(var(--risk-low))]/30 bg-[hsl(var(--badge-success-bg))] p-4 text-xs text-[hsl(var(--badge-success-fg))]">
@@ -166,7 +183,9 @@ export function NextBestAccountModal({
                 {account.contactName} · {account.plan} · ${(account.arr / 1000).toFixed(0)}k ARR
               </div>
             </div>
-            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${riskClass}`}>
+            <span
+              className={`text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${riskClass}`}
+            >
               {riskLabel}
             </span>
           </div>

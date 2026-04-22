@@ -1,6 +1,6 @@
 import { ListChecks, Building2, Clock, Settings } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { NavLink } from "./NavLink";
 
 const navItems = [
   { title: "Action Queue", url: "/", icon: ListChecks },
@@ -19,7 +19,9 @@ export function AppSidebar() {
           <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
             <ListChecks className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="font-semibold text-sm text-sidebar-accent-foreground tracking-tight">RetainIQ</span>
+          <span className="font-semibold text-sm text-sidebar-accent-foreground tracking-tight">
+            RetainIQ
+          </span>
         </div>
       </div>
       <nav className="flex-1 py-4 px-3 space-y-1">

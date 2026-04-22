@@ -1,27 +1,66 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
-import { CalendarIcon, MessageCircle, CheckCircle, X, RefreshCw, AlertCircle, CheckCheck, Inbox, FilterX } from "lucide-react";
+import {
+  AlertCircle,
+  CalendarIcon,
+  CheckCheck,
+  CheckCircle,
+  FilterX,
+  Inbox,
+  MessageCircle,
+  RefreshCw,
+  X,
+} from "lucide-react";
+import { AppLayout } from "@/shared/components/AppLayout";
+import { EmptyState } from "@/shared/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/EmptyState";
-import { AppLayout } from "@/components/AppLayout";
-import { AccountCard } from "@/components/AccountCard";
-import { AccountDetailPanel } from "@/components/AccountDetailPanel";
-import { OutreachModal } from "@/components/OutreachModal";
-import { OutcomeModal, OutreachOutcome } from "@/components/OutcomeModal";
-import { PromptInviteModal } from "@/components/PromptInviteModal";
-import { NextBestAccountModal } from "@/components/NextBestAccountModal";
-import { SnoozeModal, SnoozeData } from "@/components/SnoozeModal";
-import { mockAccounts, Account, AccountStatus, RiskLevel } from "@/data/mockAccounts";
-import { activityStore } from "@/data/activityStore";
-import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
+import {
+  Account,
+  AccountStatus,
+  RiskLevel,
+  mockAccounts,
+} from "@/shared/data/accounts";
+
+import { safeLog } from "@/features/activity-log/safeLog";
+import { ActionQueueRow } from "./components/ActionQueueRow";
+import {
+  RISK_LABEL,
+  STATUS_LABEL,
+  computeRiskCounts,
+  computeStatusCounts,
+  pickNextBestCandidate,
+  selectQueue,
+} from "./queueLogic";
+
+import { AccountDetailPanel } from "@/features/account-detail/AccountDetailPanel";
+import { OutreachModal } from "@/features/outreach/OutreachModal";
+import { OutcomeModal, OutreachOutcome } from "@/features/outcome/OutcomeModal";
+import { PromptInviteModal } from "@/features/prompt-invite/PromptInviteModal";
+import {
+  NextBestAccountModal,
+  NextBestMode,
+} from "@/features/next-best-account/NextBestAccountModal";
+import { SnoozeModal } from "@/features/snooze/SnoozeModal";
+import {
+  DURATION_LABELS,
+  REASON_LABELS,
+  SnoozeData,
+} from "@/features/snooze/snoozeOptions";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
@@ -31,7 +70,12 @@ const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] =
   { value: "follow_up_needed", label: "Follow-up Needed" },
 ];
 
-const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeClass: string }[] = [
+const RISK_OPTIONS: {
+  value: RiskLevel;
+  label: string;
+  dotClass: string;
+  activeClass: string;
+}[] = [
   {
     value: "high",
     label: "High Risk",
@@ -55,57 +99,6 @@ const RISK_OPTIONS: { value: RiskLevel; label: string; dotClass: string; activeC
   },
 ];
 
-/**
- * Wrap an action so we always log to the activity store. Performs the action
- * first; only writes the log if the action succeeds. If the log write fails,
- * we surface a non-blocking warning toast with a "Retry log update" action.
- * On successful retry, the warning is dismissed automatically.
- */
-function safeLog(
-  toast: ReturnType<typeof useToast>["toast"],
-  action: () => void,
-  entry: Parameters<typeof activityStore.log>[0],
-) {
-  // 1. Perform the user-facing action. If it fails, do not log.
-  action();
-
-  // 2. Attempt log write. The store only commits on persist success, so a
-  //    failure here means no Activity Log entry exists yet.
-  const tryWrite = (): boolean => {
-    try {
-      activityStore.log(entry);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  if (tryWrite()) return;
-
-  // 3. Show a non-blocking warning with a retry affordance.
-  const t = toast({
-    title: "Heads up",
-    description: "Action completed, but Activity Log could not be updated.",
-    variant: "destructive",
-    duration: 10000,
-    action: (
-      <ToastAction
-        altText="Retry log update"
-        onClick={(e) => {
-          e.preventDefault();
-          if (tryWrite()) {
-            t.dismiss();
-            toast({ title: "Activity Log updated", duration: 2500 });
-          }
-        }}
-      >
-        Retry log update
-      </ToastAction>
-    ),
-  });
-}
-
-
 export default function ActionQueuePage() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -117,7 +110,7 @@ export default function ActionQueuePage() {
   const [outcomeAccount, setOutcomeAccount] = useState<Account | null>(null);
   const [promptAccount, setPromptAccount] = useState<Account | null>(null);
   const [nextBestAccount, setNextBestAccount] = useState<Account | null>(null);
-  const [nextBestMode, setNextBestMode] = useState<"ready" | "loading" | "done" | "error">("ready");
+  const [nextBestMode, setNextBestMode] = useState<NextBestMode>("ready");
   const [nextBestStillSearching, setNextBestStillSearching] = useState(false);
   const [nextBestOpen, setNextBestOpen] = useState(false);
   const lastHandledIdRef = useRef<string | null>(null);
@@ -133,7 +126,6 @@ export default function ActionQueuePage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Simulated load — keeps loading + failure paths real for UX states.
   const loadQueue = () => {
     setIsLoading(true);
     setLoadError(null);
@@ -151,14 +143,18 @@ export default function ActionQueuePage() {
 
   useEffect(() => {
     return loadQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const resetHandledItems = () => {
-    setAccounts((prev) => prev.map((a) => ({ ...a, status: "needs_action" as AccountStatus })));
+    setAccounts((prev) =>
+      prev.map((a) => ({ ...a, status: "needs_action" as AccountStatus })),
+    );
     setSnoozes({});
     setFollowUpDates({});
-    toast({ title: "Handled items reset", description: "All accounts moved back to Needs Action." });
+    toast({
+      title: "Handled items reset",
+      description: "All accounts moved back to Needs Action.",
+    });
   };
 
   const resetFilters = () => {
@@ -199,7 +195,10 @@ export default function ActionQueuePage() {
         account: targets.map((t) => t.name).join(", "),
       },
     );
-    toast({ title: "Outreach sent", description: `Sent to ${ids.length} account${ids.length > 1 ? "s" : ""}.` });
+    toast({
+      title: "Outreach sent",
+      description: `Sent to ${ids.length} account${ids.length > 1 ? "s" : ""}.`,
+    });
     clearSelection();
   };
 
@@ -215,7 +214,10 @@ export default function ActionQueuePage() {
         account: targets.map((t) => t.name).join(", "),
       },
     );
-    toast({ title: "Marked as reviewed", description: `${ids.length} account${ids.length > 1 ? "s" : ""} marked as reviewed.` });
+    toast({
+      title: "Marked as reviewed",
+      description: `${ids.length} account${ids.length > 1 ? "s" : ""} marked as reviewed.`,
+    });
     clearSelection();
   };
 
@@ -232,7 +234,9 @@ export default function ActionQueuePage() {
       toast,
       () =>
         setAccounts((prev) =>
-          prev.map((a) => (ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a)),
+          prev.map((a) =>
+            ids.includes(a.id) ? { ...a, status: "follow_up_needed" as AccountStatus } : a,
+          ),
         ),
       {
         action: `Assigned follow-up to ${ids.length} accounts for ${format(date, "PPP")}`,
@@ -248,62 +252,22 @@ export default function ActionQueuePage() {
     clearSelection();
   };
 
-  const riskCounts = useMemo(
-    () => ({
-      high: accounts.filter((a) => a.risk === "high").length,
-      medium: accounts.filter((a) => a.risk === "medium").length,
-      low: accounts.filter((a) => a.risk === "low").length,
-    }),
-    [accounts],
+  const riskCounts = useMemo(() => computeRiskCounts(accounts), [accounts]);
+  const statusCounts = useMemo(
+    () => computeStatusCounts(accounts, riskFilter),
+    [accounts, riskFilter],
+  );
+  const sortedAccounts = useMemo(
+    () => selectQueue(accounts, riskFilter, statusFilter),
+    [accounts, riskFilter, statusFilter],
   );
 
-  const sortedAccounts = useMemo(() => {
-    const riskOrder = { high: 0, medium: 1, low: 2 };
-    return [...accounts]
-      .filter((a) => riskFilter.includes(a.risk))
-      .filter((a) => statusFilter === "all" || a.status === statusFilter)
-      .sort((a, b) => {
-        // Processed rows sink below actionable rows but stay visible.
-        const aProcessed = a.status === "contacted" || a.status === "reviewed" || a.status === "snoozed" ? 1 : 0;
-        const bProcessed = b.status === "contacted" || b.status === "reviewed" || b.status === "snoozed" ? 1 : 0;
-        if (aProcessed !== bProcessed) return aProcessed - bProcessed;
-        // Primary: Risk Level (High → Medium → Healthy).
-        const rd = riskOrder[a.risk] - riskOrder[b.risk];
-        if (rd !== 0) return rd;
-        // Secondary: recency / inactivity — most inactive first.
-        return b.lastActivityDays - a.lastActivityDays;
-      });
-  }, [accounts, riskFilter, statusFilter]);
-
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
-  const needsActionCount = accounts.filter((a) => a.status === "needs_action" && a.risk !== "low").length;
+  const needsActionCount = accounts.filter(
+    (a) => a.status === "needs_action" && a.risk !== "low",
+  ).length;
 
-  // Counts per Queue Status, scoped to currently selected risk filter so the
-  // dropdown reflects what users will actually see when they pick a status.
-  const statusCounts = useMemo(() => {
-    const inRisk = accounts.filter((a) => riskFilter.includes(a.risk));
-    return {
-      all: inRisk.length,
-      contacted: inRisk.filter((a) => a.status === "contacted").length,
-      reviewed: inRisk.filter((a) => a.status === "reviewed").length,
-      snoozed: inRisk.filter((a) => a.status === "snoozed").length,
-      follow_up_needed: inRisk.filter((a) => a.status === "follow_up_needed").length,
-      needs_action: inRisk.filter((a) => a.status === "needs_action").length,
-    };
-  }, [accounts, riskFilter]);
-
-  const RISK_LABEL: Record<RiskLevel, string> = { high: "High Risk", medium: "Medium Risk", low: "Healthy" };
-  const STATUS_LABEL: Record<"all" | AccountStatus, string> = {
-    all: "All",
-    contacted: "Contacted",
-    reviewed: "Reviewed",
-    snoozed: "Snoozed",
-    follow_up_needed: "Follow-up Needed",
-    needs_action: "Needs Action",
-  };
-
-  const isDefaultFilters =
-    riskFilter.length === 3 && statusFilter === "all";
+  const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
   const clearFilters = () => {
     setRiskFilter(["high", "medium", "low"]);
@@ -316,10 +280,6 @@ export default function ActionQueuePage() {
     else setRiskFilter(next);
   };
 
-  /**
-   * Wrap an account update so we notify the user if the row falls out of the
-   * active filters as a result. Prevents the "did it just disappear?" feel.
-   */
   const updateAccountWithFilterAwareness = (
     id: string,
     updates: Partial<Account>,
@@ -330,9 +290,11 @@ export default function ActionQueuePage() {
     if (!before) return;
     const after = { ...before, ...updates };
     const wasVisible =
-      riskFilter.includes(before.risk) && (statusFilter === "all" || before.status === statusFilter);
+      riskFilter.includes(before.risk) &&
+      (statusFilter === "all" || before.status === statusFilter);
     const isVisible =
-      riskFilter.includes(after.risk) && (statusFilter === "all" || after.status === statusFilter);
+      riskFilter.includes(after.risk) &&
+      (statusFilter === "all" || after.status === statusFilter);
     if (wasVisible && !isVisible) {
       toast({
         title: "Moved out of current filter",
@@ -348,10 +310,7 @@ export default function ActionQueuePage() {
     }
   };
 
-  // Deep-link from /accounts → /?focus=<id> or /?reset=1
   useEffect(() => {
-    // Wait until the queue has finished loading so we don't falsely report
-    // "not in queue" before data is ready.
     if (isLoading || loadError) return;
 
     const reset = searchParams.get("reset");
@@ -370,8 +329,6 @@ export default function ActionQueuePage() {
 
     const target = accounts.find((a) => a.id === focusId);
     if (!target) {
-      // Should be rare — Accounts screen pre-checks. Surfaces only if the
-      // queue mutated between click and arrival.
       toast({
         title: "Not in Action Queue",
         description: "This account is not currently in the Action Queue.",
@@ -381,7 +338,6 @@ export default function ActionQueuePage() {
       setSearchParams(next, { replace: true });
       return;
     }
-    // Reveal the row regardless of risk OR status filters.
     if (!riskFilter.includes(target.risk)) {
       setRiskFilter((prev) => Array.from(new Set([...prev, target.risk])) as RiskLevel[]);
     }
@@ -398,7 +354,6 @@ export default function ActionQueuePage() {
     next.delete("focus");
     setSearchParams(next, { replace: true });
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams.get("focus"), searchParams.get("reset"), isLoading, loadError]);
 
   const handleSendOutreach = (account: Account, message: string) => {
@@ -406,7 +361,7 @@ export default function ActionQueuePage() {
     safeLog(
       toast,
       () => {
-        /* outreach succeeds — UI updates downstream */
+        // outreach succeeds — UI updates downstream
       },
       {
         action: "Sent outreach",
@@ -416,7 +371,10 @@ export default function ActionQueuePage() {
         note: message?.slice(0, 140),
       },
     );
-    toast({ title: "Outreach sent", description: `Message sent to ${account.contactName} at ${account.name}` });
+    toast({
+      title: "Outreach sent",
+      description: `Message sent to ${account.contactName} at ${account.name}`,
+    });
     setOutcomeAccount(account);
   };
 
@@ -435,26 +393,21 @@ export default function ActionQueuePage() {
     setNextBestStillSearching(false);
     setNextBestOpen(true);
     clearStillSearchingTimer();
-    stillSearchingTimer.current = window.setTimeout(() => setNextBestStillSearching(true), 2000);
+    stillSearchingTimer.current = window.setTimeout(
+      () => setNextBestStillSearching(true),
+      2000,
+    );
 
-    // Simulated async lookup with rare failure for transparent UX states.
     window.setTimeout(() => {
       clearStillSearchingTimer();
       setNextBestStillSearching(false);
 
-      // ~10% simulated failure
       if (Math.random() < 0.1) {
         setNextBestMode("error");
         return;
       }
 
-      const riskOrder = { high: 0, medium: 1, low: 2 };
-      const candidate = [...accounts]
-        .filter(
-          (a) => a.id !== justHandledId && a.status === "needs_action" && riskFilter.includes(a.risk),
-        )
-        .sort((a, b) => riskOrder[a.risk] - riskOrder[b.risk])[0];
-
+      const candidate = pickNextBestCandidate(accounts, justHandledId, riskFilter);
       if (candidate) {
         setNextBestAccount(candidate);
         setNextBestMode("ready");
@@ -486,18 +439,18 @@ export default function ActionQueuePage() {
   const handleNextBestSwitchRisk = (risk: RiskLevel) => {
     setRiskFilter([risk]);
     handleStopNextBest();
-    toast({ title: "Filter updated", description: `Now viewing ${risk === "low" ? "Healthy" : risk === "medium" ? "Medium Risk" : "High Risk"} accounts.` });
+    toast({
+      title: "Filter updated",
+      description: `Now viewing ${risk === "low" ? "Healthy" : risk === "medium" ? "Medium Risk" : "High Risk"} accounts.`,
+    });
   };
-
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
     setOutcomes((prev) => ({ ...prev, [account.id]: outcome }));
-    // Map outcome → row state. Follow-up needed gets its own status now.
     let newStatus: AccountStatus = "contacted";
     if (outcome.status === "follow_up_needed" || outcome.followUpDate) {
       newStatus = "follow_up_needed";
     } else if (outcome.status === "no_response") {
-      // Leave as is — outreach was attempted but not confirmed; treat as contacted for tracking.
       newStatus = "contacted";
     }
     if (outcome.followUpDate) {
@@ -511,7 +464,11 @@ export default function ActionQueuePage() {
         type: "save_outcome",
         account: account.name,
         accountId: account.id,
-        note: outcome.notes || (outcome.followUpDate ? `Follow-up ${outcome.followUpDate.toLocaleDateString()}` : undefined),
+        note:
+          outcome.notes ||
+          (outcome.followUpDate
+            ? `Follow-up ${outcome.followUpDate.toLocaleDateString()}`
+            : undefined),
       },
     );
     setOutcomeAccount(null);
@@ -541,33 +498,20 @@ export default function ActionQueuePage() {
         accountId: account.id,
       },
     );
-    toast({ title: "Marked as reviewed", description: `${account.name} marked as reviewed` });
+    toast({
+      title: "Marked as reviewed",
+      description: `${account.name} marked as reviewed`,
+    });
     advanceToNextBestAccount(account.id);
   };
 
   const handlePromptInvite = (account: Account) => {
-    safeLog(
-      toast,
-      () => setPromptAccount(account),
-      {
-        action: "Sent invite prompt",
-        type: "prompt_invite",
-        account: account.name,
-        accountId: account.id,
-      },
-    );
-  };
-
-  const REASON_LABELS: Record<string, string> = {
-    already_contacted: "Already contacted",
-    not_relevant: "Not relevant",
-    waiting_on_customer: "Waiting on customer",
-  };
-
-  const DURATION_LABELS: Record<string, string> = {
-    "2_days": "2 days",
-    "1_week": "1 week",
-    "until_renewal": "renewal",
+    safeLog(toast, () => setPromptAccount(account), {
+      action: "Sent invite prompt",
+      type: "prompt_invite",
+      account: account.name,
+      accountId: account.id,
+    });
   };
 
   const handleSnooze = (account: Account, data: SnoozeData) => {
@@ -601,11 +545,15 @@ export default function ActionQueuePage() {
   };
 
   return (
-    <AppLayout title="My Accounts Requiring Attention" subtitle="Accounts at risk due to lack of early activation">
-      {/* Filter bar */}
+    <AppLayout
+      title="My Accounts Requiring Attention"
+      subtitle="Accounts at risk due to lack of early activation"
+    >
       <div className="mb-4 pb-4 border-b border-border space-y-3">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Risk Level</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Risk Level
+          </span>
           <ToggleGroup
             type="multiple"
             value={riskFilter}
@@ -630,8 +578,13 @@ export default function ActionQueuePage() {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-2">Queue Status</span>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-2">
+            Queue Status
+          </span>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as "all" | AccountStatus)}
+          >
             <SelectTrigger className="h-9 w-[200px] text-sm">
               <SelectValue placeholder="All" />
             </SelectTrigger>
@@ -663,7 +616,6 @@ export default function ActionQueuePage() {
           )}
         </div>
 
-        {/* Active filters summary chips */}
         {!isDefaultFilters && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
@@ -704,15 +656,17 @@ export default function ActionQueuePage() {
       </div>
 
       <div className="flex h-[calc(100vh-11rem)]">
-        {/* Main list */}
         <div className="flex-1 overflow-y-auto pr-2">
-          {/* Summary bar */}
           <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{needsActionCount} accounts need action</span>
+            <span className="font-medium text-foreground">
+              {needsActionCount} accounts need action
+            </span>
             <span>·</span>
             <span>{accounts.filter((a) => a.risk === "high").length} high risk</span>
             <span>·</span>
-            <span>{accounts.filter((a) => a.status === "contacted").length} contacted today</span>
+            <span>
+              {accounts.filter((a) => a.status === "contacted").length} contacted today
+            </span>
             {snoozedCount > 0 && (
               <>
                 <span>·</span>
@@ -723,7 +677,6 @@ export default function ActionQueuePage() {
 
           <div className="space-y-3 pb-24">
             {isLoading ? (
-              // Skeleton rows while queue loads
               Array.from({ length: 5 }).map((_, i) => (
                 <div
                   key={i}
@@ -754,9 +707,10 @@ export default function ActionQueuePage() {
               />
             ) : sortedAccounts.length === 0 ? (
               (() => {
-                // Distinct empty states based on filter context
                 const onlyHigh =
-                  riskFilter.length === 1 && riskFilter[0] === "high" && statusFilter === "all";
+                  riskFilter.length === 1 &&
+                  riskFilter[0] === "high" &&
+                  statusFilter === "all";
                 const allHandled =
                   statusFilter === "all" &&
                   accounts.filter((a) => riskFilter.includes(a.risk)).length > 0 &&
@@ -772,10 +726,18 @@ export default function ActionQueuePage() {
                       body="There are no accounts currently flagged as High Risk based on early activation and invite signals."
                       actions={
                         <>
-                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["medium"])}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRiskFilter(["medium"])}
+                          >
                             View Medium Risk
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["low"])}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRiskFilter(["low"])}
+                          >
                             View Healthy
                           </Button>
                           <Button size="sm" variant="ghost" onClick={loadQueue}>
@@ -796,7 +758,11 @@ export default function ActionQueuePage() {
                       body="All accounts in the current view have already been reviewed, contacted, or snoozed."
                       actions={
                         <>
-                          <Button size="sm" variant="outline" onClick={() => setRiskFilter(["medium"])}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRiskFilter(["medium"])}
+                          >
                             View Medium Risk
                           </Button>
                           <Button size="sm" variant="outline" onClick={loadQueue}>
@@ -831,7 +797,7 @@ export default function ActionQueuePage() {
               })()
             ) : (
               sortedAccounts.map((account) => (
-                <AccountCard
+                <ActionQueueRow
                   key={account.id}
                   ref={(el) => (cardRefs.current[account.id] = el)}
                   account={account}
@@ -849,22 +815,30 @@ export default function ActionQueuePage() {
               ))
             )}
           </div>
-
         </div>
       </div>
 
-      {/* Sticky bulk action bar */}
       {selectedIds.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border shadow-lg rounded-full pl-4 pr-2 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4">
           <span className="text-sm font-medium text-foreground whitespace-nowrap">
             {selectedIds.size} selected
           </span>
           <div className="h-5 w-px bg-border" />
-          <Button size="sm" variant="default" className="h-8 text-xs" onClick={handleBulkSendOutreach}>
+          <Button
+            size="sm"
+            variant="default"
+            className="h-8 text-xs"
+            onClick={handleBulkSendOutreach}
+          >
             <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
             Send Outreach
           </Button>
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleBulkMarkReviewed}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={handleBulkMarkReviewed}
+          >
             <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
             Mark as Reviewed
           </Button>
@@ -897,7 +871,6 @@ export default function ActionQueuePage() {
         </div>
       )}
 
-      {/* Detail panel */}
       {selectedAccount && (
         <AccountDetailPanel
           account={selectedAccount}

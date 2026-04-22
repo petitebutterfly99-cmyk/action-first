@@ -2,7 +2,7 @@
 // so any screen (Activity Log, header counters, etc.) can subscribe and stay
 // in sync after Action Queue actions.
 
-import { activityLog as seedLog } from "./mockAccounts";
+import { seedActivityLog } from "@/shared/data/accounts";
 
 export type ActivityActionType =
   | "send_outreach"
@@ -27,7 +27,7 @@ const CURRENT_USER = "You";
 const STORAGE_KEY = "csm.activityLog.v1";
 
 function seedEntries(): ActivityEntry[] {
-  return seedLog.map((e) => ({
+  return seedActivityLog.map((e) => ({
     id: e.id,
     action: e.action,
     type: "seed",

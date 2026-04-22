@@ -6,6 +6,10 @@ interface AppLayoutProps {
   subtitle?: string;
 }
 
+/**
+ * Three-pane chrome (sidebar + header + main) used by every page.
+ * Pure presentation — no data dependencies.
+ */
 export function AppLayout({ children, title, subtitle }: AppLayoutProps) {
   return (
     <div className="min-h-screen flex w-full bg-background">
