@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          active_users: number
+          arr: number
+          contact_email: string
+          contact_name: string
+          created_at: string
+          days_since_signup: number
+          first_task_created: boolean
+          id: string
+          invites_sent: number
+          last_activity_days: number
+          minutes_to_first_task: number | null
+          name: string
+          plan: string
+          quote_source: string | null
+          quote_text: string | null
+          risk: Database["public"]["Enums"]["risk_level"]
+          signup_date: string
+          status: Database["public"]["Enums"]["account_status"]
+          updated_at: string
+        }
+        Insert: {
+          active_users?: number
+          arr?: number
+          contact_email: string
+          contact_name: string
+          created_at?: string
+          days_since_signup?: number
+          first_task_created?: boolean
+          id?: string
+          invites_sent?: number
+          last_activity_days?: number
+          minutes_to_first_task?: number | null
+          name: string
+          plan?: string
+          quote_source?: string | null
+          quote_text?: string | null
+          risk?: Database["public"]["Enums"]["risk_level"]
+          signup_date: string
+          status?: Database["public"]["Enums"]["account_status"]
+          updated_at?: string
+        }
+        Update: {
+          active_users?: number
+          arr?: number
+          contact_email?: string
+          contact_name?: string
+          created_at?: string
+          days_since_signup?: number
+          first_task_created?: boolean
+          id?: string
+          invites_sent?: number
+          last_activity_days?: number
+          minutes_to_first_task?: number | null
+          name?: string
+          plan?: string
+          quote_source?: string | null
+          quote_text?: string | null
+          risk?: Database["public"]["Enums"]["risk_level"]
+          signup_date?: string
+          status?: Database["public"]["Enums"]["account_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      activity_log: {
+        Row: {
+          account_id: string | null
+          account_name: string
+          action: string
+          created_at: string
+          id: string
+          note: string | null
+          type: Database["public"]["Enums"]["activity_action_type"]
+          user_label: string
+        }
+        Insert: {
+          account_id?: string | null
+          account_name: string
+          action: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          type: Database["public"]["Enums"]["activity_action_type"]
+          user_label?: string
+        }
+        Update: {
+          account_id?: string | null
+          account_name?: string
+          action?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          type?: Database["public"]["Enums"]["activity_action_type"]
+          user_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +129,20 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      account_status:
+        | "needs_action"
+        | "contacted"
+        | "reviewed"
+        | "snoozed"
+        | "follow_up_needed"
+      activity_action_type:
+        | "send_outreach"
+        | "prompt_invite"
+        | "mark_reviewed"
+        | "snooze"
+        | "save_outcome"
+        | "seed"
+      risk_level: "high" | "medium" | "low"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +269,23 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      account_status: [
+        "needs_action",
+        "contacted",
+        "reviewed",
+        "snoozed",
+        "follow_up_needed",
+      ],
+      activity_action_type: [
+        "send_outreach",
+        "prompt_invite",
+        "mark_reviewed",
+        "snooze",
+        "save_outcome",
+        "seed",
+      ],
+      risk_level: ["high", "medium", "low"],
+    },
   },
 } as const
