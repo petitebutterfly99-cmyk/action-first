@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { activityStore } from "@/features/activity-log/activityStore";
 
 interface Profile {
   id: string;
@@ -37,21 +38,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Set up listener FIRST, then check existing session.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
-        // Defer profile fetch to avoid Supabase deadlock inside the callback.
-        setTimeout(() => loadProfile(newSession.user.id), 0);
+        // Defer Supabase calls to avoid deadlock inside the callback.
+        setTimeout(() => {
+          loadProfile(newSession.user.id);
+          activityStore.hydrate();
+        }, 0);
       } else {
         setProfile(null);
+        if (event === "SIGNED_OUT") activityStore.clear();
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: existing } }) => {
       setSession(existing);
       setUser(existing?.user ?? null);
-      if (existing?.user) loadProfile(existing.user.id);
+      if (existing?.user) {
+        loadProfile(existing.user.id);
+        activityStore.hydrate();
+      }
       setLoading(false);
     });
 
