@@ -400,11 +400,19 @@ export default function ActionQueuePage() {
 
   const handleSendOutreach = (account: Account, message: string) => {
     setOutreachAccount(null);
+    const sentAt = new Date().toISOString();
+    // Atomic row update: status + timestamp + count, derived from the same
+    // success boundary. The timestamp is the source of truth for both the
+    // row's "Contacted today" label and the aggregate metric.
+    const rowUpdates: Partial<Account> = {
+      status: "contacted" as AccountStatus,
+      lastOutreachSentAt: sentAt,
+      lastOutreachSentBy: "You",
+      outreachCount: (account.outreachCount ?? 0) + 1,
+    };
     safeLog(
       toast,
-      () => {
-        // outreach succeeds — UI updates downstream
-      },
+      () => updateAccountWithFilterAwareness(account.id, rowUpdates, account.name),
       {
         action: "Sent outreach",
         type: "send_outreach",
@@ -417,7 +425,7 @@ export default function ActionQueuePage() {
       title: "Outreach sent",
       description: `Message sent to ${account.contactName} at ${account.name}`,
     });
-    setOutcomeAccount(account);
+    setOutcomeAccount({ ...account, ...rowUpdates });
   };
 
   const clearStillSearchingTimer = () => {
