@@ -224,7 +224,7 @@ export default function ActionQueuePage() {
         applyBulk((a) => ({
           status: "contacted" as AccountStatus,
           lastOutreachSentAt: sentAt,
-          lastOutreachSentBy: "You",
+          lastOutreachSentBy: csmLabel,
           outreachCount: (a.outreachCount ?? 0) + 1,
         })),
       {
@@ -414,7 +414,7 @@ export default function ActionQueuePage() {
     const rowUpdates: Partial<Account> = {
       status: "contacted" as AccountStatus,
       lastOutreachSentAt: sentAt,
-      lastOutreachSentBy: "You",
+      lastOutreachSentBy: csmLabel,
       outreachCount: (account.outreachCount ?? 0) + 1,
     };
     safeLog(
