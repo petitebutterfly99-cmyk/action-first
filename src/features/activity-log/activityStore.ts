@@ -97,8 +97,7 @@ function emit() {
   listeners.forEach((l) => l(entries));
 }
 
-// Background hydrate from Supabase on first import.
-(async () => {
+async function hydrateFromCloud() {
   try {
     const { data, error } = await supabase
       .from("activity_log")
@@ -106,20 +105,38 @@ function emit() {
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw error;
-    if (data && data.length > 0) {
-      entries = data.map(rowToEntry);
+    // RLS scopes results to the current CSM. Replace local cache so
+    // entries from a previous user don't leak across sessions.
+    entries = (data ?? []).map(rowToEntry);
+    try {
       persistLocal(entries);
-      emit();
+    } catch {
+      /* non-fatal */
     }
+    emit();
   } catch {
-    // Fall back to whatever loadLocal() gave us — UI stays usable.
+    // Stay with whatever loadLocal() gave us.
   }
-})();
+}
+
+function clearStore() {
+  entries = [];
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* non-fatal */
+    }
+  }
+  emit();
+}
 
 export const activityStore = {
   list(): ActivityEntry[] {
     return entries;
   },
+  hydrate: hydrateFromCloud,
+  clear: clearStore,
   subscribe(listener: (e: ActivityEntry[]) => void) {
     listeners.add(listener);
     return () => listeners.delete(listener);
