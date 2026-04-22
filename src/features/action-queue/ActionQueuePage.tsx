@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AppLayout } from "@/shared/components/AppLayout";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { useAuth } from "@/features/auth/AuthProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -104,6 +105,8 @@ const RISK_OPTIONS: {
 
 export default function ActionQueuePage() {
   const { toast } = useToast();
+  const { profile, user } = useAuth();
+  const csmLabel = profile?.full_name || user?.email || "You";
   const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
