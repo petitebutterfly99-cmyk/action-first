@@ -300,6 +300,12 @@ export default function ActionQueuePage() {
     () => selectQueue(accounts, riskFilter, statusFilter),
     [accounts, riskFilter, statusFilter],
   );
+  const {
+    visible: visibleAccounts,
+    hasMore: hasMoreAccounts,
+    sentinelRef: queueSentinelRef,
+    visibleCount: visibleAccountsCount,
+  } = useInfiniteList(sortedAccounts, 50);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter(
