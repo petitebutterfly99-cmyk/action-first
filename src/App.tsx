@@ -3,16 +3,19 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/features/auth/AuthProvider";
-import { ProtectedRoute, PublicOnlyRoute } from "@/features/auth/ProtectedRoute";
-import LoginPage from "@/features/auth/LoginPage";
-import SignupPage from "@/features/auth/SignupPage";
-import ForgotPasswordPage from "@/features/auth/ForgotPasswordPage";
-import ResetPasswordPage from "@/features/auth/ResetPasswordPage";
-import ActionQueuePage from "@/features/action-queue/ActionQueuePage";
-import AccountsPage from "@/features/accounts/AccountsPage";
-import ActivityLogPage from "@/features/activity-log/ActivityLogPage";
-import SettingsPage from "@/features/settings/SettingsPage";
+import {
+  AuthProvider,
+  ProtectedRoute,
+  PublicOnlyRoute,
+  LoginPage,
+  SignupPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
+} from "@/features/auth";
+import { ActionQueuePage } from "@/features/action-queue";
+import { AccountsPage } from "@/features/accounts";
+import { ActivityLogPage } from "@/features/activity-log";
+import { SettingsPage } from "@/features/settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
