@@ -178,7 +178,7 @@ export default function AccountsPage() {
                   </tr>
                 ))}
             {!isLoading && hasMore && (
-              <tr ref={sentinelRef as React.RefObject<HTMLTableRowElement>}>
+              <tr ref={sentinelRef}>
                 <td colSpan={10} className="py-4 text-center text-xs text-muted-foreground">
                   Loading more accounts…
                 </td>
