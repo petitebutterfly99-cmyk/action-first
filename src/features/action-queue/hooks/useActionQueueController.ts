@@ -412,6 +412,7 @@ export function useActionQueueController() {
       title: "Follow-up assigned",
       description: `${ids.length} account${ids.length > 1 ? "s" : ""} scheduled for ${format(date, "PPP")}.`,
     });
+    ids.forEach((id) => commitAction(id, "save_outcome", { bulk: true, follow_up: true }));
     bulk.clearSelection();
   };
 
