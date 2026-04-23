@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 
 export default function AccountsPage() {
   const navigate = useNavigate();
