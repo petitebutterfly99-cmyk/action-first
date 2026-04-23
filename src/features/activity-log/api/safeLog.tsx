@@ -1,5 +1,6 @@
 import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent } from "@/features/analytics";
 import { activityStore } from "./activityStore";
 
 
