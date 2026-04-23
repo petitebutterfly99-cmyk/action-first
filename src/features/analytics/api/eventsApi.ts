@@ -54,12 +54,14 @@ export async function trackEvent(params: TrackParams): Promise<void> {
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth.user?.id;
     if (!userId) return; // anonymous: skip silently
-    const { error } = await supabase.from("events").insert({
-      user_id: userId,
-      account_id: params.accountId ?? null,
-      event_type: params.type,
-      metadata: params.metadata ?? {},
-    });
+    const { error } = await supabase.from("events").insert([
+      {
+        user_id: userId,
+        account_id: params.accountId ?? null,
+        event_type: params.type,
+        metadata: (params.metadata ?? {}) as never,
+      },
+    ]);
     if (error) {
       console.warn("[analytics] trackEvent failed:", error.message);
     }
