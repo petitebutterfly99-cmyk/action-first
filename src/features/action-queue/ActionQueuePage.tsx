@@ -51,6 +51,7 @@ import {
   selectQueue,
 } from "./queueLogic";
 
+import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 import { AccountDetailPanel } from "@/features/account-detail/AccountDetailPanel";
 import { OutreachModal } from "@/features/outreach/OutreachModal";
 import { OutcomeModal, OutreachOutcome } from "@/features/outcome/OutcomeModal";
