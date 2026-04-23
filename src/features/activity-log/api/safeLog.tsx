@@ -30,6 +30,13 @@ export function safeLog(
   tryWrite().then((ok) => {
     if (ok) return;
 
+    // Fire-and-forget KPI signal so we can compute Activity Log Failure Rate.
+    void trackEvent({
+      type: "activity_log_write_failed",
+      accountId: entry.accountId,
+      metadata: { action: entry.type },
+    });
+
     // 3. Show a non-blocking warning with a retry affordance.
     const t = toast({
       title: "Heads up",
