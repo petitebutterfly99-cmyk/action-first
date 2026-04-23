@@ -40,6 +40,8 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
   const stillSendingTimer = useRef<number | null>(null);
   const userTypedRef = useRef(false);
   const generationIdRef = useRef(0);
+  const aiSuggestionRef = useRef<string>(""); // last successful AI suggestion text
+  const sendAttemptCountRef = useRef(0); // for outreach_retry classification
 
   const startGeneration = (acc: Account) => {
     const myId = ++generationIdRef.current;
