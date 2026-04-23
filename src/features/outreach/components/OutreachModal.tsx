@@ -94,6 +94,8 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
     setSendState("idle");
     setStillSending(false);
     userTypedRef.current = false;
+    aiSuggestionRef.current = "";
+    sendAttemptCountRef.current = 0;
     startGeneration(account);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, open, lastAccountId]);
