@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, RiskLevel } from "@/shared/data/accounts";
 import type { NextBestMode } from "@/features/next-best-account";
+import { trackEvent } from "@/features/analytics";
 import { pickNextBestCandidate } from "../api/queueLogic";
 
 const STILL_SEARCHING_DELAY_MS = 2000;
