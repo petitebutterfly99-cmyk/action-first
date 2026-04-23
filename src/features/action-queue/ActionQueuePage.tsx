@@ -304,7 +304,7 @@ export default function ActionQueuePage() {
     visible: visibleAccounts,
     hasMore: hasMoreAccounts,
     sentinelRef: queueSentinelRef,
-    visibleCount: visibleAccountsCount,
+    revealAtLeast: revealAccountsAtLeast,
   } = useInfiniteList(sortedAccounts, 50);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
