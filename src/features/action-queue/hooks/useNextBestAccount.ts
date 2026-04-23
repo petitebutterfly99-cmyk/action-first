@@ -83,6 +83,10 @@ export function useNextBestAccount(opts: {
   };
 
   const handleContinue = (account: Account) => {
+    void trackEvent({
+      type: "next_account_accepted",
+      accountId: account.id,
+    });
     setNextBestOpen(false);
     setNextBestAccount(null);
     setNextBestMode("ready");
