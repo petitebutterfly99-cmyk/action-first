@@ -67,6 +67,11 @@ export function useNextBestAccount(opts: {
       if (candidate) {
         setNextBestAccount(candidate);
         setNextBestMode("ready");
+        void trackEvent({
+          type: "next_account_prompt_shown",
+          accountId: candidate.id,
+          metadata: { just_handled_id: justHandledId },
+        });
       } else {
         setNextBestMode("done");
       }
