@@ -128,16 +128,52 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
     setStillSending(false);
     clearStillSendingTimer();
     stillSendingTimer.current = window.setTimeout(() => setStillSending(true), 2500);
+
+    sendAttemptCountRef.current += 1;
+    const isRetry = sendAttemptCountRef.current > 1;
+    void trackEvent({
+      type: "outreach_send_attempt",
+      accountId: account.id,
+      metadata: { attempt: sendAttemptCountRef.current, retry: isRetry },
+    });
+    if (isRetry) {
+      void trackEvent({
+        type: "outreach_retry",
+        accountId: account.id,
+        metadata: { attempt: sendAttemptCountRef.current },
+      });
+    }
+
     try {
       await performSend();
       clearStillSendingTimer();
       setStillSending(false);
       setSendState("idle");
+
+      // Classify AI suggestion usage based on what was actually sent.
+      const aiClass = classifyAiUsage(aiSuggestionRef.current, message);
+      if (aiClass) {
+        void trackEvent({
+          type: aiClass,
+          accountId: account.id,
+        });
+      }
+      void trackEvent({
+        type: "outreach_send_success",
+        accountId: account.id,
+        metadata: { attempt: sendAttemptCountRef.current },
+      });
+
       onSend(account, message);
     } catch {
       clearStillSendingTimer();
       setStillSending(false);
       setSendState("error");
+      void trackEvent({
+        type: "outreach_send_failure",
+        accountId: account.id,
+        metadata: { attempt: sendAttemptCountRef.current },
+      });
     }
   };
 
