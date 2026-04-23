@@ -37,6 +37,13 @@ import { OutcomeModal } from "@/features/outcome";
 import { PromptInviteModal } from "@/features/prompt-invite";
 import { NextBestAccountModal } from "@/features/next-best-account";
 import { SnoozeModal } from "@/features/snooze";
+import {
+  KpiRow,
+  CsmPerformancePanel,
+  useSession,
+  useMetrics,
+} from "@/features/analytics";
+import { useMemo } from "react";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
