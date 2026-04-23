@@ -184,8 +184,27 @@ export function useActionQueueController() {
   const resetHandledItems = () => {
     data.resetHandledItems();
     setSnoozes({});
-    bulk.setFollowUpDates({});
   };
+
+  // Emit a normalized `action_committed` event so action-rate / action-mix
+  // can be derived from one stream regardless of which surface triggered it.
+  const commitAction = (
+    accountId: string,
+    action:
+      | "send_outreach"
+      | "prompt_invite"
+      | "mark_reviewed"
+      | "snooze"
+      | "save_outcome",
+    extra?: Record<string, unknown>,
+  ) => {
+    void trackEvent({
+      type: "action_committed",
+      accountId,
+      metadata: { action, ...(extra ?? {}) },
+    });
+  };
+
 
   // Single-account action handlers ----------------------------------------
   const handleSendOutreach = (account: Account, message: string) => {
