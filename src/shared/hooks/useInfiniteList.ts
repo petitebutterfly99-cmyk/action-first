@@ -36,5 +36,9 @@ export function useInfiniteList<T>(items: T[], batchSize = 50) {
   const visible = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
   const hasMore = visibleCount < items.length;
 
-  return { visible, hasMore, sentinelRef, visibleCount, total: items.length };
+  /** Ensure at least `n` items are rendered (used for deep-link focus). */
+  const revealAtLeast = (n: number) =>
+    setVisibleCount((c) => (n > c ? Math.min(n, items.length) : c));
+
+  return { visible, hasMore, sentinelRef, visibleCount, total: items.length, revealAtLeast };
 }
