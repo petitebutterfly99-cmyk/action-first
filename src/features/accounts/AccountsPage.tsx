@@ -49,7 +49,7 @@ export default function AccountsPage() {
     visible: visibleAccounts,
     hasMore,
     sentinelRef,
-  } = useInfiniteList(accounts, 50);
+  } = useInfiniteList<Account, HTMLTableRowElement>(accounts, 50);
 
   const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
