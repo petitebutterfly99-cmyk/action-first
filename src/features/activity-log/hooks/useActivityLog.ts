@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { activityStore, ActivityEntry } from "./activityStore";
+import { activityStore, ActivityEntry } from "../api/activityStore";
 
 /** Subscribes to the activity store; returns the current list of entries. */
 export function useActivityLog(): ActivityEntry[] {

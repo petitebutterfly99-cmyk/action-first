@@ -1,7 +1,7 @@
 import { ListChecks, Building2, Clock, Settings, LogOut } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { NavLink } from "./NavLink";
-import { useAuth } from "@/features/auth/AuthProvider";
+import { useAuth } from "@/features/auth";
 import { Button } from "@/components/ui/button";
 
 const navItems = [

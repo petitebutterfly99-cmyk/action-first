@@ -25,7 +25,7 @@ import {
   DURATION_OPTIONS,
   REASON_OPTIONS,
   computeSnoozeUntil,
-} from "./snoozeOptions";
+} from "../api/snoozeOptions";
 
 interface SnoozeModalProps {
   account: Account | null;
@@ -123,4 +123,4 @@ export function SnoozeModal({ account, open, onClose, onSnooze }: SnoozeModalPro
   );
 }
 
-export type { SnoozeData, SnoozeDuration, SnoozeReason } from "./snoozeOptions";
+export type { SnoozeData, SnoozeDuration, SnoozeReason } from "../api/snoozeOptions";

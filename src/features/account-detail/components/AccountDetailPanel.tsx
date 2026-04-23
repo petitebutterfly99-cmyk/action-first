@@ -21,7 +21,7 @@ import {
   buildInsights,
   buildTimeline,
   TimelineState,
-} from "./timeline";
+} from "../api/timeline";
 
 interface AccountDetailPanelProps {
   account: Account;

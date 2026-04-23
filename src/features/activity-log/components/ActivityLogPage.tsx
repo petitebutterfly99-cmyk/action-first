@@ -1,6 +1,6 @@
 import { Clock } from "lucide-react";
 import { AppLayout } from "@/shared/components/AppLayout";
-import { useActivityLog } from "./useActivityLog";
+import { useActivityLog } from "../hooks/useActivityLog";
 
 export default function ActivityLogPage() {
   const entries = useActivityLog();
