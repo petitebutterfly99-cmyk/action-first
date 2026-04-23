@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth";
 import { safeLog } from "@/features/activity-log";
+import { trackEvent } from "@/features/analytics";
 import {
   Account,
   AccountStatus,
