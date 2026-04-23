@@ -99,6 +99,28 @@ export function useActionQueueController() {
   const contactedTodayCount = useMemo(() => countContactedToday(accounts), [accounts]);
   const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
+  // Track filter usage. Skip the initial render (default filters) so we only
+  // emit when the CSM changes something. Pairs with `filter_zero_results`
+  // when the new filter combination yields no rows.
+  const isFirstFilterRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstFilterRenderRef.current) {
+      isFirstFilterRenderRef.current = false;
+      return;
+    }
+    void trackEvent({
+      type: "filter_applied",
+      metadata: { risk: riskFilter, status: statusFilter },
+    });
+    if (!data.isLoading && accounts.length > 0 && sortedAccounts.length === 0) {
+      void trackEvent({
+        type: "filter_zero_results",
+        metadata: { risk: riskFilter, status: statusFilter },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskFilter, statusFilter]);
+
   // Update an account both in state and DB; warn if it falls out of the
   // currently-applied filter so the CSM understands why it disappeared.
   const updateAccountWithFilterAwareness = (
