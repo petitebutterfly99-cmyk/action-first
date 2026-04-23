@@ -141,6 +141,33 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id: string
+          metadata: Json
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata?: Json
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["event_type"]
+          id?: string
+          metadata?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -190,6 +217,21 @@ export type Database = {
         | "save_outcome"
         | "seed"
       app_role: "csm" | "admin"
+      event_type:
+        | "session_start"
+        | "action_committed"
+        | "outreach_send_attempt"
+        | "outreach_send_success"
+        | "outreach_send_failure"
+        | "outreach_retry"
+        | "ai_suggestion_used"
+        | "ai_suggestion_edited"
+        | "ai_suggestion_discarded"
+        | "filter_applied"
+        | "filter_zero_results"
+        | "next_account_prompt_shown"
+        | "next_account_accepted"
+        | "activity_log_write_failed"
       risk_level: "high" | "medium" | "low"
     }
     CompositeTypes: {
@@ -334,6 +376,22 @@ export const Constants = {
         "seed",
       ],
       app_role: ["csm", "admin"],
+      event_type: [
+        "session_start",
+        "action_committed",
+        "outreach_send_attempt",
+        "outreach_send_success",
+        "outreach_send_failure",
+        "outreach_retry",
+        "ai_suggestion_used",
+        "ai_suggestion_edited",
+        "ai_suggestion_discarded",
+        "filter_applied",
+        "filter_zero_results",
+        "next_account_prompt_shown",
+        "next_account_accepted",
+        "activity_log_write_failed",
+      ],
       risk_level: ["high", "medium", "low"],
     },
   },

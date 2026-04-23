@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { Account, RiskLevel } from "@/shared/data/accounts";
 import type { NextBestMode } from "@/features/next-best-account";
+import { trackEvent } from "@/features/analytics";
 import { pickNextBestCandidate } from "../api/queueLogic";
 
 const STILL_SEARCHING_DELAY_MS = 2000;
@@ -66,6 +67,11 @@ export function useNextBestAccount(opts: {
       if (candidate) {
         setNextBestAccount(candidate);
         setNextBestMode("ready");
+        void trackEvent({
+          type: "next_account_prompt_shown",
+          accountId: candidate.id,
+          metadata: { just_handled_id: justHandledId },
+        });
       } else {
         setNextBestMode("done");
       }
@@ -77,6 +83,10 @@ export function useNextBestAccount(opts: {
   };
 
   const handleContinue = (account: Account) => {
+    void trackEvent({
+      type: "next_account_accepted",
+      accountId: account.id,
+    });
     setNextBestOpen(false);
     setNextBestAccount(null);
     setNextBestMode("ready");

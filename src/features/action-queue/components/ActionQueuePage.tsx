@@ -37,6 +37,13 @@ import { OutcomeModal } from "@/features/outcome";
 import { PromptInviteModal } from "@/features/prompt-invite";
 import { NextBestAccountModal } from "@/features/next-best-account";
 import { SnoozeModal } from "@/features/snooze";
+import {
+  KpiRow,
+  CsmPerformancePanel,
+  useSession,
+  useMetrics,
+} from "@/features/analytics";
+import { useMemo } from "react";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
@@ -85,11 +92,31 @@ const RISK_OPTIONS: {
 export default function ActionQueuePage() {
   const c = useActionQueueController();
 
+  // Analytics: start/refresh session + derive in-page KPIs.
+  const { sessionStartedISO } = useSession();
+  const surfacedAccountIds = useMemo(
+    () => c.sortedAccounts.map((a) => a.id),
+    [c.sortedAccounts],
+  );
+  const highRiskAccountIds = useMemo(
+    () => c.accounts.filter((a) => a.risk === "high").map((a) => a.id),
+    [c.accounts],
+  );
+  const metrics = useMetrics({
+    sessionStartedISO,
+    surfacedAccountIds,
+    highRiskAccountIds,
+  });
+
   return (
     <AppLayout
       title="My Accounts Requiring Attention"
       subtitle="Accounts at risk due to lack of early activation"
     >
+      {/* Lightweight KPI row + collapsible secondary panel ----------------- */}
+      <KpiRow metrics={metrics} />
+      <CsmPerformancePanel metrics={metrics} />
+
       {/* Filters --------------------------------------------------------- */}
       <div className="mb-4 pb-4 border-b border-border space-y-3">
         <div className="flex items-center gap-3 flex-wrap">

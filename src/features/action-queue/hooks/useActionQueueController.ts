@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/features/auth";
 import { safeLog } from "@/features/activity-log";
+import { trackEvent } from "@/features/analytics";
 import {
   Account,
   AccountStatus,
@@ -98,6 +99,28 @@ export function useActionQueueController() {
   const contactedTodayCount = useMemo(() => countContactedToday(accounts), [accounts]);
   const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
+  // Track filter usage. Skip the initial render (default filters) so we only
+  // emit when the CSM changes something. Pairs with `filter_zero_results`
+  // when the new filter combination yields no rows.
+  const isFirstFilterRenderRef = useRef(true);
+  useEffect(() => {
+    if (isFirstFilterRenderRef.current) {
+      isFirstFilterRenderRef.current = false;
+      return;
+    }
+    void trackEvent({
+      type: "filter_applied",
+      metadata: { risk: riskFilter, status: statusFilter },
+    });
+    if (!data.isLoading && accounts.length > 0 && sortedAccounts.length === 0) {
+      void trackEvent({
+        type: "filter_zero_results",
+        metadata: { risk: riskFilter, status: statusFilter },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskFilter, statusFilter]);
+
   // Update an account both in state and DB; warn if it falls out of the
   // currently-applied filter so the CSM understands why it disappeared.
   const updateAccountWithFilterAwareness = (
@@ -161,8 +184,27 @@ export function useActionQueueController() {
   const resetHandledItems = () => {
     data.resetHandledItems();
     setSnoozes({});
-    bulk.setFollowUpDates({});
   };
+
+  // Emit a normalized `action_committed` event so action-rate / action-mix
+  // can be derived from one stream regardless of which surface triggered it.
+  const commitAction = (
+    accountId: string,
+    action:
+      | "send_outreach"
+      | "prompt_invite"
+      | "mark_reviewed"
+      | "snooze"
+      | "save_outcome",
+    extra?: Record<string, unknown>,
+  ) => {
+    void trackEvent({
+      type: "action_committed",
+      accountId,
+      metadata: { action, ...(extra ?? {}) },
+    });
+  };
+
 
   // Single-account action handlers ----------------------------------------
   const handleSendOutreach = (account: Account, message: string) => {
@@ -193,6 +235,7 @@ export function useActionQueueController() {
       description: `Message sent to ${account.contactName} at ${account.name}`,
     });
     setOutcomeAccount({ ...account, ...rowUpdates });
+    commitAction(account.id, "send_outreach");
   };
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
@@ -229,6 +272,7 @@ export function useActionQueueController() {
         : "Outcome captured.",
     });
     setSelectedAccount(null);
+    commitAction(account.id, "save_outcome", { outcome_status: outcome.status });
     nextBest.advance(account.id);
   };
 
@@ -255,6 +299,7 @@ export function useActionQueueController() {
       description: `${account.name} marked as reviewed`,
     });
     setSelectedAccount(null);
+    commitAction(account.id, "mark_reviewed");
     nextBest.advance(account.id);
   };
 
@@ -265,6 +310,7 @@ export function useActionQueueController() {
       account: account.name,
       accountId: account.id,
     });
+    commitAction(account.id, "prompt_invite");
   };
 
   const handleSnooze = (account: Account, snoozeData: SnoozeData) => {
@@ -291,6 +337,7 @@ export function useActionQueueController() {
         ? `${account.name} · ${REASON_LABELS[snoozeData.reason]}`
         : `${account.name} kept in queue with snoozed status.`,
     });
+    commitAction(account.id, "snooze", { duration: snoozeData.duration });
   };
 
   // Bulk handlers ---------------------------------------------------------
@@ -317,6 +364,7 @@ export function useActionQueueController() {
       title: "Outreach sent",
       description: `Sent to ${ids.length} account${ids.length > 1 ? "s" : ""}.`,
     });
+    ids.forEach((id) => commitAction(id, "send_outreach", { bulk: true }));
     bulk.clearSelection();
   };
 
@@ -336,6 +384,7 @@ export function useActionQueueController() {
       title: "Marked as reviewed",
       description: `${ids.length} account${ids.length > 1 ? "s" : ""} marked as reviewed.`,
     });
+    ids.forEach((id) => commitAction(id, "mark_reviewed", { bulk: true }));
     bulk.clearSelection();
   };
 
@@ -363,6 +412,7 @@ export function useActionQueueController() {
       title: "Follow-up assigned",
       description: `${ids.length} account${ids.length > 1 ? "s" : ""} scheduled for ${format(date, "PPP")}.`,
     });
+    ids.forEach((id) => commitAction(id, "save_outcome", { bulk: true, follow_up: true }));
     bulk.clearSelection();
   };
 
