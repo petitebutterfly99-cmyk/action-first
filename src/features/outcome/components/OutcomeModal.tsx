@@ -27,7 +27,7 @@ import {
   OutreachOutcome,
   OutreachOutcomeStatus,
   STATUS_OPTIONS,
-} from "./outcomeTypes";
+} from "../types/outcomeTypes";
 
 interface OutcomeModalProps {
   account: Account | null;
@@ -142,5 +142,5 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
   );
 }
 
-export type { OutreachOutcome, OutreachOutcomeStatus } from "./outcomeTypes";
-export { STATUS_TO_ACCOUNT_STATUS } from "./outcomeTypes";
+export type { OutreachOutcome, OutreachOutcomeStatus } from "../types/outcomeTypes";
+export { STATUS_TO_ACCOUNT_STATUS } from "../types/outcomeTypes";

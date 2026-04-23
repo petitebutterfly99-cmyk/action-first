@@ -2,6 +2,7 @@ import { ToastAction } from "@/components/ui/toast";
 import { useToast } from "@/hooks/use-toast";
 import { activityStore } from "./activityStore";
 
+
 /**
  * Wrap an action so we always log to the activity store. Performs the action
  * first; only writes the log if the action succeeds. If the log write fails,

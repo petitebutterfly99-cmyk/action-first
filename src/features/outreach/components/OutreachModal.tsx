@@ -11,12 +11,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { buildDefaultTemplate, FALLBACK_PLACEHOLDER } from "./template";
+import { buildDefaultTemplate, FALLBACK_PLACEHOLDER } from "../api/template";
 import {
   GENERATION_TIMEOUT_MS,
   generateSuggestedMessage,
   performSend,
-} from "./outreachApi";
+} from "../api/outreachApi";
 
 interface OutreachModalProps {
   account: Account | null;
