@@ -8,9 +8,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * bottom of the list — when it intersects the viewport, the next batch is
  * appended.
  */
-export function useInfiniteList<T>(items: T[], batchSize = 50) {
+export function useInfiniteList<T, E extends HTMLElement = HTMLDivElement>(
+  items: T[],
+  batchSize = 50,
+) {
   const [visibleCount, setVisibleCount] = useState(batchSize);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<E | null>(null);
 
   // Reset when the underlying list changes shape (filters applied, refresh, etc.)
   useEffect(() => {
