@@ -45,6 +45,12 @@ export default function AccountsPage() {
     };
   }, []);
 
+  const {
+    visible: visibleAccounts,
+    hasMore,
+    sentinelRef,
+  } = useInfiniteList(accounts, 50);
+
   const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
   const navigateToQueue = (id: string) => {
