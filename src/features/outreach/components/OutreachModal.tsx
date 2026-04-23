@@ -66,6 +66,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
         window.clearTimeout(timeoutHandle);
         if (myId !== generationIdRef.current) return;
         setIsGenerating(false);
+        aiSuggestionRef.current = text;
         if (!userTypedRef.current) {
           setMessage(text);
           setGenerationTimedOut(false);
