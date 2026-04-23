@@ -883,23 +883,38 @@ export default function ActionQueuePage() {
                 );
               })()
             ) : (
-              sortedAccounts.map((account) => (
-                <ActionQueueRow
-                  key={account.id}
-                  ref={(el) => (cardRefs.current[account.id] = el)}
-                  account={account}
-                  onSendOutreach={setOutreachAccount}
-                  onPromptInvite={handlePromptInvite}
-                  onMarkReviewed={handleMarkReviewed}
-                  onSelect={setSelectedAccount}
-                  onSnooze={setSnoozeAccount}
-                  selected={selectedIds.has(account.id)}
-                  onToggleSelected={toggleSelected}
-                  highlight={highlightId === account.id}
-                  snoozeUntil={snoozes[account.id]?.until}
-                  followUpDate={followUpDates[account.id]}
-                />
-              ))
+              <>
+                {visibleAccounts.map((account) => (
+                  <ActionQueueRow
+                    key={account.id}
+                    ref={(el) => (cardRefs.current[account.id] = el)}
+                    account={account}
+                    onSendOutreach={setOutreachAccount}
+                    onPromptInvite={handlePromptInvite}
+                    onMarkReviewed={handleMarkReviewed}
+                    onSelect={setSelectedAccount}
+                    onSnooze={setSnoozeAccount}
+                    selected={selectedIds.has(account.id)}
+                    onToggleSelected={toggleSelected}
+                    highlight={highlightId === account.id}
+                    snoozeUntil={snoozes[account.id]?.until}
+                    followUpDate={followUpDates[account.id]}
+                  />
+                ))}
+                {hasMoreAccounts && (
+                  <div
+                    ref={queueSentinelRef}
+                    className="py-4 text-center text-xs text-muted-foreground"
+                  >
+                    Loading more accounts…
+                  </div>
+                )}
+                {!hasMoreAccounts && sortedAccounts.length > 50 && (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    Showing all {sortedAccounts.length} accounts
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
