@@ -337,6 +337,7 @@ export function useActionQueueController() {
         ? `${account.name} · ${REASON_LABELS[snoozeData.reason]}`
         : `${account.name} kept in queue with snoozed status.`,
     });
+    commitAction(account.id, "snooze", { duration: snoozeData.duration });
   };
 
   // Bulk handlers ---------------------------------------------------------
@@ -363,6 +364,7 @@ export function useActionQueueController() {
       title: "Outreach sent",
       description: `Sent to ${ids.length} account${ids.length > 1 ? "s" : ""}.`,
     });
+    ids.forEach((id) => commitAction(id, "send_outreach", { bulk: true }));
     bulk.clearSelection();
   };
 
@@ -382,6 +384,7 @@ export function useActionQueueController() {
       title: "Marked as reviewed",
       description: `${ids.length} account${ids.length > 1 ? "s" : ""} marked as reviewed.`,
     });
+    ids.forEach((id) => commitAction(id, "mark_reviewed", { bulk: true }));
     bulk.clearSelection();
   };
 
