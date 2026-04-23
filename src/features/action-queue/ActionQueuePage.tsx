@@ -401,6 +401,9 @@ export default function ActionQueuePage() {
       setStatusFilter("all");
     }
     setHighlightId(focusId);
+    // Make sure the target row is actually rendered before scrolling.
+    const idx = sortedAccounts.findIndex((a) => a.id === focusId);
+    if (idx >= 0) revealAccountsAtLeast(idx + 1);
     requestAnimationFrame(() => {
       const el = cardRefs.current[focusId];
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
