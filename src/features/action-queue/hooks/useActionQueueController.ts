@@ -235,6 +235,7 @@ export function useActionQueueController() {
       description: `Message sent to ${account.contactName} at ${account.name}`,
     });
     setOutcomeAccount({ ...account, ...rowUpdates });
+    commitAction(account.id, "send_outreach");
   };
 
   const handleSaveOutcome = (account: Account, outcome: OutreachOutcome) => {
@@ -271,6 +272,7 @@ export function useActionQueueController() {
         : "Outcome captured.",
     });
     setSelectedAccount(null);
+    commitAction(account.id, "save_outcome", { outcome_status: outcome.status });
     nextBest.advance(account.id);
   };
 
@@ -297,6 +299,7 @@ export function useActionQueueController() {
       description: `${account.name} marked as reviewed`,
     });
     setSelectedAccount(null);
+    commitAction(account.id, "mark_reviewed");
     nextBest.advance(account.id);
   };
 
@@ -307,6 +310,7 @@ export function useActionQueueController() {
       account: account.name,
       accountId: account.id,
     });
+    commitAction(account.id, "prompt_invite");
   };
 
   const handleSnooze = (account: Account, snoozeData: SnoozeData) => {
