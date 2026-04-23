@@ -51,6 +51,7 @@ import {
   selectQueue,
 } from "./queueLogic";
 
+import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 import { AccountDetailPanel } from "@/features/account-detail/AccountDetailPanel";
 import { OutreachModal } from "@/features/outreach/OutreachModal";
 import { OutcomeModal, OutreachOutcome } from "@/features/outcome/OutcomeModal";
@@ -299,6 +300,12 @@ export default function ActionQueuePage() {
     () => selectQueue(accounts, riskFilter, statusFilter),
     [accounts, riskFilter, statusFilter],
   );
+  const {
+    visible: visibleAccounts,
+    hasMore: hasMoreAccounts,
+    sentinelRef: queueSentinelRef,
+    revealAtLeast: revealAccountsAtLeast,
+  } = useInfiniteList(sortedAccounts, 50);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter(
@@ -394,6 +401,9 @@ export default function ActionQueuePage() {
       setStatusFilter("all");
     }
     setHighlightId(focusId);
+    // Make sure the target row is actually rendered before scrolling.
+    const idx = sortedAccounts.findIndex((a) => a.id === focusId);
+    if (idx >= 0) revealAccountsAtLeast(idx + 1);
     requestAnimationFrame(() => {
       const el = cardRefs.current[focusId];
       if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -876,23 +886,38 @@ export default function ActionQueuePage() {
                 );
               })()
             ) : (
-              sortedAccounts.map((account) => (
-                <ActionQueueRow
-                  key={account.id}
-                  ref={(el) => (cardRefs.current[account.id] = el)}
-                  account={account}
-                  onSendOutreach={setOutreachAccount}
-                  onPromptInvite={handlePromptInvite}
-                  onMarkReviewed={handleMarkReviewed}
-                  onSelect={setSelectedAccount}
-                  onSnooze={setSnoozeAccount}
-                  selected={selectedIds.has(account.id)}
-                  onToggleSelected={toggleSelected}
-                  highlight={highlightId === account.id}
-                  snoozeUntil={snoozes[account.id]?.until}
-                  followUpDate={followUpDates[account.id]}
-                />
-              ))
+              <>
+                {visibleAccounts.map((account) => (
+                  <ActionQueueRow
+                    key={account.id}
+                    ref={(el) => (cardRefs.current[account.id] = el)}
+                    account={account}
+                    onSendOutreach={setOutreachAccount}
+                    onPromptInvite={handlePromptInvite}
+                    onMarkReviewed={handleMarkReviewed}
+                    onSelect={setSelectedAccount}
+                    onSnooze={setSnoozeAccount}
+                    selected={selectedIds.has(account.id)}
+                    onToggleSelected={toggleSelected}
+                    highlight={highlightId === account.id}
+                    snoozeUntil={snoozes[account.id]?.until}
+                    followUpDate={followUpDates[account.id]}
+                  />
+                ))}
+                {hasMoreAccounts && (
+                  <div
+                    ref={queueSentinelRef}
+                    className="py-4 text-center text-xs text-muted-foreground"
+                  >
+                    Loading more accounts…
+                  </div>
+                )}
+                {!hasMoreAccounts && sortedAccounts.length > 50 && (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    Showing all {sortedAccounts.length} accounts
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

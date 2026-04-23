@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
 
 export default function AccountsPage() {
   const navigate = useNavigate();
@@ -43,6 +44,12 @@ export default function AccountsPage() {
       cancelled = true;
     };
   }, []);
+
+  const {
+    visible: visibleAccounts,
+    hasMore,
+    sentinelRef,
+  } = useInfiniteList<Account, HTMLTableRowElement>(accounts, 50);
 
   const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
@@ -134,7 +141,7 @@ export default function AccountsPage() {
                       </td>
                     </tr>
                   )
-                : accounts.map((a) => (
+                : visibleAccounts.map((a) => (
                   <tr key={a.id} className="border-b border-border/50 hover:bg-muted/30">
                     <td className="py-2.5 font-medium text-foreground">{a.name}</td>
                     <td className="py-2.5 text-muted-foreground">{a.contactName}</td>
@@ -170,6 +177,20 @@ export default function AccountsPage() {
                     </td>
                   </tr>
                 ))}
+            {!isLoading && hasMore && (
+              <tr ref={sentinelRef}>
+                <td colSpan={10} className="py-4 text-center text-xs text-muted-foreground">
+                  Loading more accounts…
+                </td>
+              </tr>
+            )}
+            {!isLoading && !hasMore && accounts.length > 50 && (
+              <tr>
+                <td colSpan={10} className="py-4 text-center text-xs text-muted-foreground">
+                  Showing all {accounts.length} accounts
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
