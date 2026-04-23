@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { trackEvent, classifyAiUsage } from "@/features/analytics";
 import { buildDefaultTemplate, FALLBACK_PLACEHOLDER } from "../api/template";
 import {
   GENERATION_TIMEOUT_MS,
