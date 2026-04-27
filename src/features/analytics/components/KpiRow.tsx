@@ -1,4 +1,5 @@
 import { Clock, MessageCircle, Target } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MetricsSummary } from "../hooks/useMetrics";
 
 interface KpiRowProps {
@@ -45,33 +46,53 @@ function Card({
   );
 }
 
+function SkeletonCard() {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2 rounded-md border border-border bg-card min-w-[150px]">
+      <Skeleton className="h-8 w-8 rounded-md" />
+      <div className="space-y-1.5">
+        <Skeleton className="h-2.5 w-20" />
+        <Skeleton className="h-3.5 w-12" />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Compact KPI row pinned to the top of the Action Queue. Three primary
  * metrics only — the goal is "is the CSM acting?", not "show me a dashboard".
  */
 export function KpiRow({ metrics }: KpiRowProps) {
+  // Before the first metrics tick lands, render skeleton tiles so the layout
+  // is stable and there's no flash of "—" placeholders during initial load.
+  if (!metrics) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2 mb-3">
       <Card
         icon={<Target className="h-4 w-4" />}
         label="Action Rate"
-        value={pct(metrics?.actionRate ?? null)}
-        sub={
-          metrics
-            ? `${metrics.actedCount}/${metrics.surfacedCount} surfaced`
-            : "—"
-        }
+        value={pct(metrics.actionRate)}
+        sub={`${metrics.actedCount}/${metrics.surfacedCount} surfaced`}
       />
       <Card
         icon={<Clock className="h-4 w-4" />}
         label="Time to First Action"
-        value={formatTtfa(metrics?.timeToFirstActionSec ?? null)}
+        value={formatTtfa(metrics.timeToFirstActionSec)}
         sub="this session"
       />
       <Card
         icon={<MessageCircle className="h-4 w-4" />}
         label="Contacted Today"
-        value={String(metrics?.contactedToday ?? 0)}
+        value={String(metrics.contactedToday)}
         sub="unique accounts"
       />
     </div>

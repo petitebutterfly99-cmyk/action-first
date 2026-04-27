@@ -55,6 +55,11 @@ export function CsmPerformancePanel({ metrics }: CsmPerformancePanelProps) {
       >
         <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
         CSM Performance
+        {!metrics && (
+          <span className="text-[10px] font-normal text-muted-foreground/80">
+            · Take an action to populate metrics
+          </span>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-3">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
