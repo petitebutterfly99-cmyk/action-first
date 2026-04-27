@@ -245,7 +245,7 @@ A KPI row plus CSM performance panel (`features/analytics/`) render inline above
 - **Status-driven demotion, not deletion.** Progress stays visible.
 - **AI is assistive, never required.** Default templates, 2 s timeout, never overwrite user input.
 - **Action and log are decoupled.** A failed log write never blocks a real intervention.
-- **Explicit edge states, not silent failures.** Every loading, empty, and failure path has its own UI.
+- **Explicit edge states, not silent failures.** Every loading, empty, offline, timeout, and failure path has its own UI and copy.
 - **Performance with scale.** Incremental rendering keeps the DOM small at 300+ accounts.
 
 ---
