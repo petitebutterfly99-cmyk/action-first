@@ -8,33 +8,103 @@ import {
 } from "@/shared/data/accounts";
 
 /**
+ * Categorized error kinds so the UI can show a precise message
+ * (timeout vs offline vs server error vs unknown).
+ */
+export type LoadErrorKind = "timeout" | "offline" | "server" | "unknown";
+export interface LoadError {
+  kind: LoadErrorKind;
+  title: string;
+  message: string;
+}
+
+const FETCH_TIMEOUT_MS = 10_000;
+
+function classifyError(e: unknown): LoadError {
+  // Offline (browser reports no network)
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return {
+      kind: "offline",
+      title: "You're offline",
+      message: "Check your internet connection and try again.",
+    };
+  }
+  const msg = e instanceof Error ? e.message : String(e ?? "");
+  if (/timeout|timed out/i.test(msg)) {
+    return {
+      kind: "timeout",
+      title: "Service Temporarily Unavailable",
+      message:
+        "The database took too long to respond. This is usually temporary — please retry in a moment.",
+    };
+  }
+  if (/failed to fetch|networkerror|network error|fetch/i.test(msg)) {
+    return {
+      kind: "server",
+      title: "Service Temporarily Unavailable",
+      message: "We couldn't reach the database. Please retry in a moment.",
+    };
+  }
+  return {
+    kind: "unknown",
+    title: "Couldn't load accounts",
+    message: "We ran into a problem loading this queue.",
+  };
+}
+
+/** Race a promise against a timeout. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("Request timed out")), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
+/**
  * Owns the list of accounts visible to the current CSM plus the primitives
  * used to mutate them locally and persist through to the database.
- *
- * - `loadQueue` (re-)fetches from Supabase. Returns a cancel function.
- * - `updateAccount` patches a single row in state and writes through to DB.
- * - `bulkUpdateAccounts` patches many rows at once with grouped DB writes.
- * - `resetHandledItems` flips every account back to `needs_action` (local-only).
  */
 export function useAccountsData() {
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<LoadError | null>(null);
 
   const loadQueue = () => {
     setIsLoading(true);
     setLoadError(null);
     let cancelled = false;
-    fetchAccounts()
+
+    // Dev-only: ?simulateTimeout=1 forces a timeout so we can verify the
+    // error state without breaking real connectivity.
+    const simulateTimeout =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("simulateTimeout") === "1";
+
+    const request: Promise<Account[]> = simulateTimeout
+      ? new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out")), 1500),
+        )
+      : withTimeout(fetchAccounts(), FETCH_TIMEOUT_MS);
+
+    request
       .then((rows) => {
         if (cancelled) return;
         setAccounts(rows);
         setIsLoading(false);
       })
-      .catch(() => {
+      .catch((e: unknown) => {
         if (cancelled) return;
-        setLoadError("We ran into a problem loading this queue.");
+        setLoadError(classifyError(e));
         setIsLoading(false);
       });
     return () => {
@@ -57,11 +127,6 @@ export function useAccountsData() {
     });
   };
 
-  /**
-   * Apply a per-row updater to every selected id. We collect the resulting
-   * patches, group identical ones, and fire one bulk DB write per group so
-   * we don't hammer the API with N separate updates.
-   */
   const bulkUpdateAccounts = (
     selectedIds: Set<string>,
     updater: (a: Account) => Partial<Account> | null,
