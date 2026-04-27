@@ -141,6 +141,36 @@ export type Database = {
           },
         ]
       }
+      benchmarks: {
+        Row: {
+          comparator_pct: number | null
+          computed_at: string
+          copy_template: string
+          id: string
+          key: string
+          sample_size: number
+          value_pct: number
+        }
+        Insert: {
+          comparator_pct?: number | null
+          computed_at?: string
+          copy_template: string
+          id?: string
+          key: string
+          sample_size?: number
+          value_pct: number
+        }
+        Update: {
+          comparator_pct?: number | null
+          computed_at?: string
+          copy_template?: string
+          id?: string
+          key?: string
+          sample_size?: number
+          value_pct?: number
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           account_id: string | null
@@ -167,6 +197,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      outreach_templates: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -195,12 +263,74 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          daily_digest: boolean
+          email_alerts_high_risk: boolean
+          risk_thresholds: Json
+          slack_notifications: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          daily_digest?: boolean
+          email_alerts_high_risk?: boolean
+          risk_thresholds?: Json
+          slack_notifications?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          daily_digest?: boolean
+          email_alerts_high_risk?: boolean
+          risk_thresholds?: Json
+          slack_notifications?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       account_status:
