@@ -222,11 +222,91 @@ All derivations (sort, filter, counts, next-best pick) go through
 
 ## Known gaps before production
 
-- No real auth, RBAC, or multi-user activity attribution.
-- Settings page is UI-only; risk thresholds aren't applied to risk recomputation.
-- No pagination on the Accounts table (fine for ~42, not for thousands).
-- No optimistic-update rollback on send failure (we surface the failure but the
-  `contacted` status sticks because `safeLog` deliberately doesn't revert).
-  Decide product behavior here before wiring the real send API.
-- Activity log is per-browser (localStorage). Move to backend for any
-  multi-device or audit use case.
+Auth, accounts, and the activity log are now Cloud-backed, but the integration
+surfaced a new class of gaps. Grouped by category so the next team can triage.
+
+### Data correctness
+
+- **No optimistic-update rollback.** `updateAccountInDb` and
+  `bulkUpdateAccountsInDb` failures leave local state diverged from the
+  database — a failed bulk update on 20 rows currently shows success in the UI.
+  This also covers the original `safeLog` send-failure case: the `contacted`
+  status sticks even when the send fails. Decide product behavior (revert vs.
+  hold-and-retry) before wiring real send/CRM APIs.
+- **Silent 1000-row truncation.** `fetchAccounts` has no `.range()` /
+  pagination; Supabase's default 1000-row cap will silently drop accounts past
+  the limit with no warning to the CSM. Fine for the demo seed (~42), latent
+  data-correctness bug at scale.
+- **No `AbortController` on in-flight requests.** Rapid filter changes,
+  Retry clicks, and unmounts during a slow fetch race — stale responses can
+  overwrite fresh ones in `useAccountsData`.
+- **No schema-version / migration guard.** The client assumes columns like
+  `outreach_count` and `last_outreach_sent_at` exist; a rolled-back migration
+  crashes `rowToAccount` instead of degrading.
+
+### Auth & session
+
+- **RBAC is coarse.** `profiles.role` only distinguishes `csm` / `admin`. No
+  per-account ACLs, team hierarchies, or delegated access.
+- **No cross-tab sign-out propagation.** Signing out in one tab leaves other
+  tabs authenticated until next refresh. Needs a `storage` event listener.
+- **`signOut({ scope: "local" })` never revokes server-side sessions.** Stolen
+  refresh tokens stay valid on the server. Acceptable for a prototype; must be
+  hardened (server-scope sign-out with offline fallback) before production.
+- **No session-expiry pre-warning.** Token-refresh failure surfaces a toast
+  *after* the fact; long-idle CSMs lose unsaved modal state (outreach drafts,
+  snooze reasons).
+- **App-layer rate limiting unverified.** Login / password-reset rely entirely
+  on Supabase defaults; no client-side throttling or lockout UX.
+
+### Resilience & offline
+
+- **`OfflineBanner` only watches `navigator.onLine`.** It misses the
+  "online but Supabase unreachable" case (DNS, CORS, 5xx). The Action Queue's
+  `classifyError` handles this locally, but the global banner doesn't, so other
+  screens still show generic failures.
+- **No offline mutation queue.** Sign-out works offline, but `Send Outreach`,
+  `Snooze`, and `Mark Reviewed` simply fail with no replay when the connection
+  returns.
+- **`activityStore` dead-letter handling is shallow.** Persistence failures
+  show a retry toast; if the user dismisses it, the entry is lost. The store
+  hydrates from Cloud but has no reconciliation pass on reconnect.
+
+### Multi-user / realtime
+
+- **No realtime subscription on `accounts`.** Two CSMs working the same queue
+  see stale data until manual refresh — one can `Send Outreach` to an account
+  the other just snoozed.
+- **No optimistic concurrency control.** No `updated_at` check or row version
+  on writes; last write wins silently.
+
+### Edge functions
+
+- **`seed-demo-csms` auth-gating to verify** before production exposure.
+- **No edge-function error budget or alerting.** Failures surface only in
+  Supabase logs.
+
+### Observability
+
+- **No client-side error reporting** (Sentry or equivalent). The new structured
+  errors in `useAccountsData` are user-facing only — engineers see nothing.
+- **Analytics event coverage unaudited.** `analytics/eventsApi.ts` exists but
+  the action-funnel vs. failure-event split has not been reviewed.
+
+### Business logic
+
+- **Settings risk thresholds are UI-only.** `useUserSettings` persists user
+  preferences, but neither `accountsApi` nor any risk recomputation consumes
+  them. Risk derivation still runs off the seed-data heuristic.
+
+### Testing
+
+- **Only `ActionQueuePage.test.tsx` exists.** No tests for auth flows,
+  RLS-scoped fetches, error classification, offline banner, optimistic-update
+  paths, or bulk operations.
+- **No RLS policy tests.** Policies are trusted by inspection only.
+
+### Accessibility & i18n
+
+- **Both unaudited.** No keyboard-nav sweep, no screen-reader pass, no
+  string externalization. Worth flagging now rather than discovering cold.
