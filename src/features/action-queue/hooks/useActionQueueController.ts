@@ -431,6 +431,8 @@ export function useActionQueueController() {
     visibleAccounts,
     hasMoreAccounts,
     queueSentinelRef,
+    visibleAccountsCount,
+    loadMoreAccounts,
     snoozedCount,
     needsActionCount,
     contactedTodayCount,
