@@ -90,26 +90,26 @@ function setCurrentUser(label: string | null) {
   currentUserLabel = label && label.trim() ? label : "You";
 }
 
-async function hydrateFromCloud() {
-  try {
-    const { data, error } = await supabase
-      .from("activity_log")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error) throw error;
-    // RLS scopes results to the current CSM. Replace local cache so
-    // entries from a previous user don't leak across sessions.
-    entries = (data ?? []).map(rowToEntry);
-    try {
-      persistLocal(entries);
-    } catch {
-      /* non-fatal */
-    }
-    emit();
-  } catch {
-    // Stay with whatever loadLocal() gave us.
+async function hydrateFromCloud(): Promise<void> {
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) {
+    // Surface failure to the caller so the UI can show a retry card.
+    // The local cache (loadLocal) is still readable via list().
+    throw error;
   }
+  // RLS scopes results to the current CSM. Replace local cache so
+  // entries from a previous user don't leak across sessions.
+  entries = (data ?? []).map(rowToEntry);
+  try {
+    persistLocal(entries);
+  } catch {
+    /* non-fatal */
+  }
+  emit();
 }
 
 function clearStore() {
