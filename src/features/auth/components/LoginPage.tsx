@@ -26,14 +26,38 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setSubmitting(false);
-    if (signInError) {
-      // Inline error — leaves email + password populated so the user can fix and retry.
-      setError(signInError.message);
-      return;
+    try {
+      // Pre-flight offline check — avoids a confusing "Failed to fetch" from the SDK.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        throw new Error("offline");
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        // Network / fetch failures from the SDK surface as "Failed to fetch" or
+        // "NetworkError" — translate those into a clear offline message.
+        const msg = signInError.message || "";
+        if (/failed to fetch|network|fetch/i.test(msg)) {
+          setError(
+            "Can't reach the server. You appear to be offline — check your connection and try again.",
+          );
+        } else {
+          setError(signInError.message);
+        }
+        return;
+      }
+      navigate("/", { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "offline" || /failed to fetch|network/i.test(msg)) {
+        setError(
+          "Can't reach the server. You appear to be offline — check your connection and try again.",
+        );
+      } else {
+        setError(msg || "Something went wrong. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
     }
-    navigate("/", { replace: true });
   };
 
   const fillDemo = (demoEmail: string) => {
