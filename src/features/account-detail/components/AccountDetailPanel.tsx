@@ -22,6 +22,8 @@ import {
   buildTimeline,
   TimelineState,
 } from "../api/timeline";
+import { useBenchmarks, renderBenchmark } from "../hooks/useBenchmarks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AccountDetailPanelProps {
   account: Account;
@@ -60,6 +62,13 @@ export function AccountDetailPanel({
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
+  const { data: benchmarks, loading: benchmarksLoading } = useBenchmarks();
+
+  const activationCopy = account.firstTaskCreated
+    ? renderBenchmark(benchmarks?.task_within_10min_retention_lift)
+    : renderBenchmark(benchmarks?.no_activation_5day_churn);
+  const inviteRateCopy = renderBenchmark(benchmarks?.invite_3day_rate);
+  const inviteRetentionCopy = renderBenchmark(benchmarks?.invite_retention_compare);
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -156,15 +165,26 @@ export function AccountDetailPanel({
 
             {/* Benchmark insight */}
             <div className="bg-muted/50 rounded-md p-3 border border-border">
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {account.firstTaskCreated
-                  ? "Users who create a task within 10 minutes retain 2x more."
-                  : "This user hasn't created any tasks. Users who don't activate within 5 days churn at 82%."}
-              </p>
-              <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                Only 12% of users invite a teammate in the first 3 days. Accounts with invites
-                retain at 68% vs 22% without.
-              </p>
+              {benchmarksLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-4/5" />
+                </div>
+              ) : (
+                <>
+                  {activationCopy && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {!account.firstTaskCreated && "This user hasn't created any tasks. "}
+                      {activationCopy}
+                    </p>
+                  )}
+                  {(inviteRateCopy || inviteRetentionCopy) && (
+                    <p className="text-xs text-muted-foreground leading-relaxed mt-2">
+                      {inviteRateCopy} {inviteRetentionCopy}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Quote */}
