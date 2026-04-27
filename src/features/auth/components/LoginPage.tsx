@@ -11,6 +11,7 @@ const DEMO_USERS = [
   { name: "Marcus Rivera", email: "marcus.rivera@demo.app" },
   { name: "Priya Patel", email: "priya.patel@demo.app" },
   { name: "Daniel Kim", email: "daniel.kim@demo.app" },
+  { name: "Alex Morgan", email: "alex.morgan@demo.app" },
 ];
 const DEMO_PASSWORD = "demo1234";
 

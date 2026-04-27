@@ -15,6 +15,7 @@ const DEMO_CSMS = [
   { email: "marcus.rivera@demo.app", full_name: "Marcus Rivera" },
   { email: "priya.patel@demo.app", full_name: "Priya Patel" },
   { email: "daniel.kim@demo.app", full_name: "Daniel Kim" },
+  { email: "alex.morgan@demo.app", full_name: "Alex Morgan" },
 ];
 
 Deno.serve(async (req) => {
