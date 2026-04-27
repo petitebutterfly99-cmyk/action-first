@@ -60,7 +60,10 @@ export default function AccountsPage() {
     visible: visibleAccounts,
     hasMore,
     sentinelRef,
+    visibleCount,
+    revealAtLeast,
   } = useInfiniteList<Account, HTMLTableRowElement>(accounts, 50);
+  const loadMore = () => revealAtLeast(visibleCount + 50);
 
   const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
