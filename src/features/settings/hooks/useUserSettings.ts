@@ -73,7 +73,7 @@ export function useUserSettings() {
       const { error: err } = await supabase
         .from("user_settings")
         .upsert(
-          { user_id: user.id, ...next },
+          [{ user_id: user.id, ...next }],
           { onConflict: "user_id" },
         );
       setSaving(null);
