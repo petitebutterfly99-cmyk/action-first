@@ -96,7 +96,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Clear local state immediately so the UI can navigate away even when
+    // offline. The network call to revoke the server-side session is
+    // fire-and-forget with a "local" scope fallback so it never blocks.
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    activityStore.setCurrentUser(null);
+    activityStore.clear();
+    hadSessionRef.current = false;
+
+    try {
+      // `scope: "local"` only clears the local storage tokens — no network
+      // round-trip required, so it succeeds while offline.
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Ignore — local state is already cleared above.
+    }
   };
 
   const refreshProfile = async () => {
