@@ -165,7 +165,9 @@ A KPI row plus CSM performance panel (`features/analytics/`) render inline above
 9. If a row drops out of the active filter after a status change, a brief toast explains *"This account moved out of the current filter after its status was updated."*
 10. Every successful action attempts an Activity Log write; if it fails, the action is **not** rolled back — a non-blocking warning with **Retry log update** appears.
 11. CSM can switch screens via the sidebar (Action Queue / Accounts / Activity Log / Settings) — every screen respects the same per-CSM scoping.
-12. **Logout** returns the user to `/login`.
+12. **Logout** returns the user to `/login`. Sign-out works while offline (local-scope token clear) so the CSM is never trapped in the app by a connectivity failure.
+
+**Resilience overlay (applies to every step):** a global offline banner appears when connectivity is lost; account-level fetch failures classify into offline / timeout / server states with specific copy and Retry; a session-expiry toast surfaces silent token-refresh failures so the redirect to `/login` is never unexplained.
 
 ---
 
