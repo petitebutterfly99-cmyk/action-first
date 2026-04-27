@@ -98,6 +98,7 @@ The heart of the product.
   - **Filter returns zero rows:** *"No accounts match this filter"* with Reset filters / View All.
   - **All in view handled:** *"You've handled everything in this queue"* + reset handled items.
   - **Load error:** *"Couldn't load accounts"* + Retry.
+  - **Transport-classified errors:** offline / timeout / server failures get specific copy (e.g. *"Service Temporarily Unavailable"*) so the CSM can distinguish a connectivity blip from a back-end outage.
 - Default sort: actionable first → Risk (High → Healthy) → most days inactive first.
 
 ### 6.5 Account Detail Panel
