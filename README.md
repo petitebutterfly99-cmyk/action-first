@@ -42,6 +42,7 @@ The heart of the product. A prioritized list of **the logged-in CSM's assigned a
 - Summary metrics: accounts needing action, high-risk count, **Contacted Today** (derived from `last_outreach_sent_at` on each row, never double-counts)
 - **Infinite scroll** — first 50 rows render, next 50 load as a sentinel near the bottom enters the viewport, so the page stays snappy with 300+ accounts
 - Dedicated empty state for CSMs with no assignments: *"No assigned accounts — Contact admin"*
+- **Structured error states** for offline / timeout / server failures (e.g. *"Service Temporarily Unavailable"*) with Retry, distinguished from the generic "Couldn't load" path
 
 ### 3. Account Detail Panel (side panel)
 Opens on row click. Activation timeline (signed up → first task → invites sent), key stats, and retention insights derived from the account's signals.

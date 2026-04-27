@@ -1,32 +1,24 @@
-# Rewrite HANDOFF.md "Known gaps before production"
+# Update README.md and PRD.md to match current prototype
 
-Replace the existing "Known gaps before production" section in `HANDOFF.md` with a categorized, current-state audit that reflects the Cloud-backed auth, accounts, and activity-log integrations now in place.
+Light additive edits — both docs are ~90% current; this fills the gaps without rewriting accurate sections.
 
-## What changes
+## README.md
 
-**File**: `HANDOFF.md` — single section replacement, no other content touched.
+- **Section 2 (Action Queue)**: add bullet for structured error states (offline / timeout / server) with Retry.
+- **New Section 12 (Analytics)**: short entry covering the KPI row + CSM performance panel from `features/analytics/`.
+- **Section 11 (Settings)**: reword to mention `useUserSettings` persists user preferences (not yet consumed by risk recomputation).
+- **Main Build Decisions**: add one bullet for global offline banner + session-expiry toast.
 
-**Remove / rewrite (stale items)**:
-- "No real auth, RBAC, or multi-user activity attribution" → rewritten as coarse-RBAC gap (Supabase auth + `profiles.role` now exist).
-- "Activity log is per-browser (localStorage)" → reframed as a sync/dead-letter gap (store now hydrates from Cloud but retry handling is shallow).
-- "No optimistic-update rollback on send failure" → kept but expanded to cover all `updateAccountInDb` / `bulkUpdateAccountsInDb` paths.
-- "No pagination on the Accounts table" → reframed as silent 1000-row truncation in `fetchAccounts`.
-- Settings risk-threshold gap → kept, restated to note `useUserSettings` persists but isn't consumed.
+## PRD.md
 
-**New categorized gaps added**:
-- **Data correctness**: optimistic rollback, 1000-row truncation, missing `AbortController`, no schema-version guard.
-- **Auth & session**: no cross-tab sign-out, no expiry pre-warning, `signOut({ scope: "local" })` doesn't revoke server-side, app-layer rate limiting unverified.
-- **Resilience**: `OfflineBanner` only watches `navigator.onLine` (misses Supabase-unreachable), no offline mutation queue, `activityStore` dead-letter handling.
-- **Edge functions**: `seed-demo-csms` auth-gating to verify, no error-budget alerting.
-- **Multi-user / realtime**: no `accounts` realtime subscription, no optimistic concurrency control.
-- **Observability**: no client-side error reporting, analytics event coverage unaudited.
-- **Testing**: only `ActionQueuePage.test.tsx` exists; no RLS / auth / error-path / bulk-op tests.
-- **A11y / i18n**: unaudited.
-
-**Structure**: grouped under sub-headings (Data correctness, Auth & session, Resilience, Multi-user/realtime, Observability, Business logic, Testing, A11y/i18n) so the next team can triage by category.
+- **6.4 Action Queue empty states**: add bullet distinguishing timeout-specific "Service Temporarily Unavailable" copy from generic load error.
+- **New 6.14 Analytics Panel**: purpose + brief contents (KPI row, CSM performance panel).
+- **Section 7 User Flow**: add a short resilience step covering offline banner, offline sign-out, and structured error UI.
+- **9.1 Real**: three new bullets — `OfflineBanner`, session-expiry toast in `AuthProvider`, `classifyError` in `useAccountsData`.
+- **9.3 Not yet built**: append cross-reference to HANDOFF.md "Known gaps".
+- **Section 10 Build Principles**: tighten the "explicit edge states" line to include offline + timeout paths.
 
 ## Out of scope
 
-- No code changes. Documentation only.
-- No edits to `README.md`, `PRD.md`, `ARCHITECTURE.md`, or `Integration Plan.md` (they may also be stale, but the user asked specifically about HANDOFF.md).
-- No new tests or implementation of any listed gap.
+- No code changes, no other doc files (`ARCHITECTURE.md`, `Integration Plan.md`, `HANDOFF.md`) touched.
+- No restructuring of accurate sections (hypothesis, data model, tech stack, modals).
