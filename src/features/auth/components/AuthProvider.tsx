@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer Supabase calls to avoid deadlock inside the callback.
         setTimeout(() => {
           loadProfile(newSession.user.id);
-          activityStore.hydrate();
+          activityStore.hydrate().catch(() => {/* page-level retry handles it */});
         }, 0);
       } else {
         setProfile(null);
