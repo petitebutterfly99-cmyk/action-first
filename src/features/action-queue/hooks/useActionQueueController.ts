@@ -87,7 +87,10 @@ export function useActionQueueController() {
     hasMore: hasMoreAccounts,
     sentinelRef: queueSentinelRef,
     revealAtLeast: revealAccountsAtLeast,
+    visibleCount: visibleAccountsCount,
   } = useInfiniteList(sortedAccounts, QUEUE_BATCH_SIZE);
+  const loadMoreAccounts = () =>
+    revealAccountsAtLeast(visibleAccountsCount + QUEUE_BATCH_SIZE);
 
   const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
   const needsActionCount = accounts.filter(
@@ -428,6 +431,8 @@ export function useActionQueueController() {
     visibleAccounts,
     hasMoreAccounts,
     queueSentinelRef,
+    visibleAccountsCount,
+    loadMoreAccounts,
     snoozedCount,
     needsActionCount,
     contactedTodayCount,

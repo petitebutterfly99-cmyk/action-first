@@ -4,9 +4,21 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useActivityLog } from "../hooks/useActivityLog";
+import { useInfiniteList } from "@/shared/hooks/useInfiniteList";
+import type { ActivityEntry } from "../api/activityStore";
+
+const ACTIVITY_BATCH_SIZE = 50;
 
 export default function ActivityLogPage() {
   const { entries, loading, error, reload } = useActivityLog();
+  const {
+    visible: visibleEntries,
+    hasMore,
+    sentinelRef,
+    visibleCount,
+    revealAtLeast,
+  } = useInfiniteList<ActivityEntry, HTMLDivElement>(entries, ACTIVITY_BATCH_SIZE);
+  const loadMore = () => revealAtLeast(visibleCount + ACTIVITY_BATCH_SIZE);
 
   return (
     <AppLayout title="Activity Log" subtitle="Recent actions taken on accounts">
@@ -44,27 +56,45 @@ export default function ActivityLogPage() {
             body="Your actions from the queue will appear here."
           />
         ) : (
-          entries.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex items-start gap-3 bg-card border rounded-md px-4 py-3"
-            >
-              <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-              <div className="flex-1 text-sm">
-                <div>
-                  <span className="font-medium text-foreground">{entry.action}</span>
-                  <span className="text-muted-foreground"> on </span>
-                  <span className="font-medium text-foreground">{entry.account}</span>
-                  <span className="text-muted-foreground"> by </span>
-                  <span className="text-foreground">{entry.user}</span>
+          <>
+            {visibleEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-start gap-3 bg-card border rounded-md px-4 py-3"
+              >
+                <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="flex-1 text-sm">
+                  <div>
+                    <span className="font-medium text-foreground">{entry.action}</span>
+                    <span className="text-muted-foreground"> on </span>
+                    <span className="font-medium text-foreground">{entry.account}</span>
+                    <span className="text-muted-foreground"> by </span>
+                    <span className="text-foreground">{entry.user}</span>
+                  </div>
+                  {entry.note && (
+                    <p className="text-xs text-muted-foreground mt-1 italic">"{entry.note}"</p>
+                  )}
                 </div>
-                {entry.note && (
-                  <p className="text-xs text-muted-foreground mt-1 italic">"{entry.note}"</p>
-                )}
+                <span className="text-xs text-muted-foreground shrink-0">{entry.timestamp}</span>
               </div>
-              <span className="text-xs text-muted-foreground shrink-0">{entry.timestamp}</span>
-            </div>
-          ))
+            ))}
+            {hasMore ? (
+              <div ref={sentinelRef} className="py-4 flex flex-col items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={loadMore}>
+                  Load more
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Showing {visibleCount} of {entries.length}
+                </span>
+              </div>
+            ) : (
+              entries.length > ACTIVITY_BATCH_SIZE && (
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  Showing all {entries.length} entries
+                </div>
+              )
+            )}
+          </>
         )}
       </div>
     </AppLayout>

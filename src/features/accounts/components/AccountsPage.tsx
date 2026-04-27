@@ -60,7 +60,10 @@ export default function AccountsPage() {
     visible: visibleAccounts,
     hasMore,
     sentinelRef,
+    visibleCount,
+    revealAtLeast,
   } = useInfiniteList<Account, HTMLTableRowElement>(accounts, 50);
+  const loadMore = () => revealAtLeast(visibleCount + 50);
 
   const isAccountInQueue = (id: string) => accounts.some((a) => a.id === id);
 
@@ -208,8 +211,15 @@ export default function AccountsPage() {
                 ))}
             {!isLoading && hasMore && (
               <tr ref={sentinelRef}>
-                <td colSpan={10} className="py-4 text-center text-xs text-muted-foreground">
-                  Loading more accounts…
+                <td colSpan={10} className="py-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <Button size="sm" variant="ghost" onClick={loadMore}>
+                      Load more
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Showing {visibleCount} of {accounts.length}
+                    </span>
+                  </div>
                 </td>
               </tr>
             )}

@@ -402,18 +402,24 @@ export default function ActionQueuePage() {
                     followUpDate={c.followUpDates[account.id]}
                   />
                 ))}
-                {c.hasMoreAccounts && (
+                {c.hasMoreAccounts ? (
                   <div
                     ref={c.queueSentinelRef}
-                    className="py-4 text-center text-xs text-muted-foreground"
+                    className="py-4 flex flex-col items-center gap-2"
                   >
-                    Loading more accounts…
+                    <Button size="sm" variant="ghost" onClick={c.loadMoreAccounts}>
+                      Load more
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Showing {c.visibleAccountsCount} of {c.sortedAccounts.length}
+                    </span>
                   </div>
-                )}
-                {!c.hasMoreAccounts && c.sortedAccounts.length > 50 && (
-                  <div className="py-4 text-center text-xs text-muted-foreground">
-                    Showing all {c.sortedAccounts.length} accounts
-                  </div>
+                ) : (
+                  c.sortedAccounts.length > 50 && (
+                    <div className="py-4 text-center text-xs text-muted-foreground">
+                      Showing all {c.sortedAccounts.length} accounts
+                    </div>
+                  )
                 )}
               </>
             )}
