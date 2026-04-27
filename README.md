@@ -42,6 +42,7 @@ The heart of the product. A prioritized list of **the logged-in CSM's assigned a
 - Summary metrics: accounts needing action, high-risk count, **Contacted Today** (derived from `last_outreach_sent_at` on each row, never double-counts)
 - **Infinite scroll** — first 50 rows render, next 50 load as a sentinel near the bottom enters the viewport, so the page stays snappy with 300+ accounts
 - Dedicated empty state for CSMs with no assignments: *"No assigned accounts — Contact admin"*
+- **Structured error states** for offline / timeout / server failures (e.g. *"Service Temporarily Unavailable"*) with Retry, distinguished from the generic "Couldn't load" path
 
 ### 3. Account Detail Panel (side panel)
 Opens on row click. Activation timeline (signed up → first task → invites sent), key stats, and retention insights derived from the account's signals.
@@ -68,7 +69,10 @@ Full table view of the CSM's portfolio with infinite scroll. Includes **View in 
 Read-only audit trail of the CSM's actions and any actions on their assigned accounts, persisted in Supabase.
 
 ### 11. Settings (`/settings`)
-Risk threshold configuration.
+Risk threshold configuration and per-user preferences (persisted via `useUserSettings`; thresholds are stored but not yet consumed by risk recomputation).
+
+### 12. Analytics
+A KPI row and CSM performance panel (`features/analytics/`) surface aggregate action funnel metrics and per-CSM rates inline above the queue — read-only, derived from the same RLS-scoped data.
 
 ## User Flow
 
@@ -98,6 +102,7 @@ Risk threshold configuration.
 - **AI is assistive, never blocking.** The Outreach Modal opens with a default template instantly; the AI suggestion is a background enhancement with a 2 s cap and graceful fallback. The Send button is always live.
 - **Momentum loop.** The Next-Best-Account Modal keeps the CSM in flow rather than dumping them back at the queue between actions.
 - **Resilient logging.** Actions run first; the Activity Log write is attempted afterward via a `safeLog` helper that surfaces a retry toast on failure but never reverts the underlying action.
+- **Resilience surfaces.** A global `OfflineBanner` flags lost connectivity, sign-out works while offline, and a session-expiry toast (in `AuthProvider`) makes silent token-refresh failures legible. Account-level fetches classify errors into offline / timeout / server states with specific copy.
 - **Performance with scale.** Infinite scroll (`useInfiniteList`, 50-row batches with an IntersectionObserver sentinel) keeps the DOM small even with hundreds of accounts per CSM.
 - **Gainsight-inspired layout** (left sidebar, top header, content area) with a neutral enterprise palette — familiar to the target user without the dashboard clutter.
 - **Semantic design tokens.** All colors are HSL tokens defined in `index.css` / `tailwind.config.ts` (`risk-high`, `badge-urgent-bg`, etc.) so risk semantics are consistent across components.

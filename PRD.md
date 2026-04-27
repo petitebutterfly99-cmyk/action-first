@@ -98,6 +98,7 @@ The heart of the product.
   - **Filter returns zero rows:** *"No accounts match this filter"* with Reset filters / View All.
   - **All in view handled:** *"You've handled everything in this queue"* + reset handled items.
   - **Load error:** *"Couldn't load accounts"* + Retry.
+  - **Transport-classified errors:** offline / timeout / server failures get specific copy (e.g. *"Service Temporarily Unavailable"*) so the CSM can distinguish a connectivity blip from a back-end outage.
 - Default sort: actionable first → Risk (High → Healthy) → most days inactive first.
 
 ### 6.5 Account Detail Panel
@@ -141,7 +142,12 @@ Explicit states: loading → *"still finding…"* → *"done for now"* → *"cou
 Persisted in the Supabase `activity_log` table; RLS scopes visible entries to actions on the CSM's assigned accounts (or untargeted entries the CSM created).
 
 ### 6.13 Settings — `/settings`
-**Purpose:** configure risk thresholds and notification preferences.
+**Purpose:** configure risk thresholds and notification preferences. User preferences persist via `useUserSettings`; risk thresholds are stored but not yet consumed by risk recomputation (see HANDOFF → Known gaps).
+
+### 6.14 Analytics Panel
+**Purpose:** give the CSM (and CS leaders) a lightweight read on action funnel + per-CSM performance without leaving the queue.
+
+A KPI row plus CSM performance panel (`features/analytics/`) render inline above the Action Queue, derived from the same RLS-scoped `accounts` and `activity_log` data so per-CSM scoping is preserved.
 
 ---
 
@@ -159,7 +165,9 @@ Persisted in the Supabase `activity_log` table; RLS scopes visible entries to ac
 9. If a row drops out of the active filter after a status change, a brief toast explains *"This account moved out of the current filter after its status was updated."*
 10. Every successful action attempts an Activity Log write; if it fails, the action is **not** rolled back — a non-blocking warning with **Retry log update** appears.
 11. CSM can switch screens via the sidebar (Action Queue / Accounts / Activity Log / Settings) — every screen respects the same per-CSM scoping.
-12. **Logout** returns the user to `/login`.
+12. **Logout** returns the user to `/login`. Sign-out works while offline (local-scope token clear) so the CSM is never trapped in the app by a connectivity failure.
+
+**Resilience overlay (applies to every step):** a global offline banner appears when connectivity is lost; account-level fetch failures classify into offline / timeout / server states with specific copy and Retry; a session-expiry toast surfaces silent token-refresh failures so the redirect to `/login` is never unexplained.
 
 ---
 
@@ -203,6 +211,8 @@ Persisted in the Supabase `activity_log` table; RLS scopes visible entries to ac
 - **Account Detail Panel** with activation timeline.
 - **Performance:** infinite scroll (50-row batches via IntersectionObserver) on Action Queue and Accounts so 300+ records render smoothly.
 - **Routing, layout, sidebar, settings page.**
+- **Analytics surface:** KPI row + CSM performance panel rendered above the Action Queue, derived from RLS-scoped data.
+- **Resilience layer:** global `OfflineBanner` driven by `navigator.onLine`; offline-safe sign-out (`scope: "local"`) so the user is never trapped; session-expiry toast in `AuthProvider` for silent token-refresh failures; structured error classification in `useAccountsData` (offline / timeout / server / unknown) with a 10 s timeout race on the Supabase fetch.
 - **Seeded demo data:** 4 demo CSMs (created via the `seed-demo-csms` edge function) and 300 unique B2B SaaS accounts distributed across them with realistic risk, status, ARR, signup-date, and outreach-timestamp distributions, plus seeded activity log entries.
 
 ### 9.2 Mocked / Simulated
@@ -220,6 +230,8 @@ Persisted in the Supabase `activity_log` table; RLS scopes visible entries to ac
 - Saved filter presets, role-based permissions beyond `csm` / `admin`, team-wide queues, account reassignment workflow.
 - Telemetry-driven risk scoring (current risk is from seeded fields).
 
+> See **`HANDOFF.md` → Known gaps before production** for the engineering-side list (optimistic-update rollback, 1000-row pagination, `AbortController` on fetches, cross-tab sign-out, realtime subscriptions, observability, test coverage, a11y/i18n).
+
 ---
 
 ## 10. Build Principles (as implemented)
@@ -233,7 +245,7 @@ Persisted in the Supabase `activity_log` table; RLS scopes visible entries to ac
 - **Status-driven demotion, not deletion.** Progress stays visible.
 - **AI is assistive, never required.** Default templates, 2 s timeout, never overwrite user input.
 - **Action and log are decoupled.** A failed log write never blocks a real intervention.
-- **Explicit edge states, not silent failures.** Every loading, empty, and failure path has its own UI.
+- **Explicit edge states, not silent failures.** Every loading, empty, offline, timeout, and failure path has its own UI and copy.
 - **Performance with scale.** Incremental rendering keeps the DOM small at 300+ accounts.
 
 ---
