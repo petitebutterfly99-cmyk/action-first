@@ -17,6 +17,7 @@ import { AccountsPage } from "@/features/accounts";
 import { ActivityLogPage } from "@/features/activity-log";
 import { SettingsPage } from "@/features/settings";
 import NotFound from "./pages/NotFound";
+import { OfflineBanner } from "@/shared/components/OfflineBanner";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <OfflineBanner />
       <BrowserRouter>
         <AuthProvider>
           <Routes>
