@@ -102,6 +102,7 @@ A KPI row and CSM performance panel (`features/analytics/`) surface aggregate ac
 - **AI is assistive, never blocking.** The Outreach Modal opens with a default template instantly; the AI suggestion is a background enhancement with a 2 s cap and graceful fallback. The Send button is always live.
 - **Momentum loop.** The Next-Best-Account Modal keeps the CSM in flow rather than dumping them back at the queue between actions.
 - **Resilient logging.** Actions run first; the Activity Log write is attempted afterward via a `safeLog` helper that surfaces a retry toast on failure but never reverts the underlying action.
+- **Resilience surfaces.** A global `OfflineBanner` flags lost connectivity, sign-out works while offline, and a session-expiry toast (in `AuthProvider`) makes silent token-refresh failures legible. Account-level fetches classify errors into offline / timeout / server states with specific copy.
 - **Performance with scale.** Infinite scroll (`useInfiniteList`, 50-row batches with an IntersectionObserver sentinel) keeps the DOM small even with hundreds of accounts per CSM.
 - **Gainsight-inspired layout** (left sidebar, top header, content area) with a neutral enterprise palette — familiar to the target user without the dashboard clutter.
 - **Semantic design tokens.** All colors are HSL tokens defined in `index.css` / `tailwind.config.ts` (`risk-high`, `badge-urgent-bg`, etc.) so risk semantics are consistent across components.
