@@ -69,7 +69,10 @@ Full table view of the CSM's portfolio with infinite scroll. Includes **View in 
 Read-only audit trail of the CSM's actions and any actions on their assigned accounts, persisted in Supabase.
 
 ### 11. Settings (`/settings`)
-Risk threshold configuration.
+Risk threshold configuration and per-user preferences (persisted via `useUserSettings`; thresholds are stored but not yet consumed by risk recomputation).
+
+### 12. Analytics
+A KPI row and CSM performance panel (`features/analytics/`) surface aggregate action funnel metrics and per-CSM rates inline above the queue — read-only, derived from the same RLS-scoped data.
 
 ## User Flow
 
