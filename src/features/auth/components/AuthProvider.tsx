@@ -110,8 +110,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
+const FALLBACK_AUTH: AuthContextValue = {
+  session: null,
+  user: null,
+  profile: null,
+  loading: true,
+  signOut: async () => {},
+  refreshProfile: async () => {},
+};
+
+export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) {
+    // Can occur briefly during HMR before the provider tree remounts.
+    // Return a safe loading-state default rather than crashing the subtree.
+    if (import.meta.env.DEV) {
+      console.warn("useAuth called outside AuthProvider — returning defaults (likely HMR)");
+    }
+    return FALLBACK_AUTH;
+  }
   return ctx;
 }
