@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import type { Account } from "@/shared/data/accounts";
 import {
   Dialog,
@@ -31,32 +32,53 @@ interface SnoozeModalProps {
   account: Account | null;
   open: boolean;
   onClose: () => void;
-  onSnooze: (account: Account, data: SnoozeData) => void;
+  /** May return a Promise — the modal awaits it before closing and shows a retry on rejection. */
+  onSnooze: (account: Account, data: SnoozeData) => void | Promise<void>;
 }
 
 export function SnoozeModal({ account, open, onClose, onSnooze }: SnoozeModalProps) {
   const [duration, setDuration] = useState<SnoozeDuration>("2_days");
   const [reason, setReason] = useState<SnoozeReason | "">("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (account) {
       setDuration("2_days");
       setReason("");
+      setSubmitting(false);
+      setError(null);
     }
   }, [account?.id]);
 
   if (!account) return null;
 
-  const handleSnooze = () => {
-    onSnooze(account, {
-      until: computeSnoozeUntil(duration),
-      duration,
-      reason: (reason || null) as SnoozeReason | null,
-    });
+  const handleSnooze = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Field values stay populated; we only close on success.
+      await onSnooze(account, {
+        until: computeSnoozeUntil(duration),
+        duration,
+        reason: (reason || null) as SnoozeReason | null,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't snooze this account.");
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) return;
+        if (submitting) return; // never close mid-submit
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">Snooze {account.name}</DialogTitle>
@@ -108,14 +130,33 @@ export function SnoozeModal({ account, open, onClose, onSnooze }: SnoozeModalPro
               </SelectContent>
             </Select>
           </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+            >
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+              <div className="flex-1">{error}</div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs px-2 -mt-0.5 shrink-0"
+                onClick={handleSnooze}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSnooze}>
-            Snooze
+          <Button size="sm" onClick={handleSnooze} disabled={submitting}>
+            {submitting ? "Snoozing…" : "Snooze"}
           </Button>
         </DialogFooter>
       </DialogContent>

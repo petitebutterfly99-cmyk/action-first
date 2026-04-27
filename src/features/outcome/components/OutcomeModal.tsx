@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { AlertCircle, CalendarIcon, RefreshCw } from "lucide-react";
 import type { Account } from "@/shared/data/accounts";
 import {
   Dialog,
@@ -33,7 +33,8 @@ interface OutcomeModalProps {
   account: Account | null;
   open: boolean;
   onClose: () => void;
-  onSave: (account: Account, outcome: OutreachOutcome) => void;
+  /** May return a Promise — modal awaits it and shows inline retry on rejection. */
+  onSave: (account: Account, outcome: OutreachOutcome) => void | Promise<void>;
   onSkip: (account: Account) => void;
 }
 
@@ -41,6 +42,8 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
   const [status, setStatus] = useState<OutreachOutcomeStatus>("contacted");
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset whenever a new account flows in
   useEffect(() => {
@@ -48,13 +51,24 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
       setStatus("contacted");
       setFollowUpDate(undefined);
       setNotes("");
+      setSubmitting(false);
+      setError(null);
     }
   }, [account?.id]);
 
   if (!account) return null;
 
-  const handleSave = () => {
-    onSave(account, { status, followUpDate: followUpDate ?? null, notes });
+  const handleSave = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Status, followUpDate, notes all stay populated on failure.
+      await onSave(account, { status, followUpDate: followUpDate ?? null, notes });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save this outcome.");
+      setSubmitting(false);
+    }
   };
 
   return (
