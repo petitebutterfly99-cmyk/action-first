@@ -16,7 +16,7 @@ import type { Account, AccountStatus, RiskLevel } from "@/shared/data/accounts";
  */
 export function useFocusFromUrl(opts: {
   isLoading: boolean;
-  loadError: string | null;
+  loadError: unknown;
   accounts: Account[];
   sortedAccounts: Account[];
   riskFilter: RiskLevel[];
