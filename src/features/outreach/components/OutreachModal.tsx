@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { trackEvent, classifyAiUsage } from "@/features/analytics";
-import { buildDefaultTemplate, FALLBACK_PLACEHOLDER } from "../api/template";
+import { buildDefaultTemplate, FALLBACK_PLACEHOLDER, loadDefaultTemplate } from "../api/template";
 import {
   GENERATION_TIMEOUT_MS,
   generateSuggestedMessage,
@@ -90,12 +90,17 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
     if (!account || !open) return;
     if (account.id === lastAccountId) return;
     setLastAccountId(account.id);
+    // Sync fallback first so the textarea is never empty.
     setMessage(buildDefaultTemplate(account));
     setSendState("idle");
     setStillSending(false);
     userTypedRef.current = false;
     aiSuggestionRef.current = "";
     sendAttemptCountRef.current = 0;
+    // Async: prefer the user's saved default template if any.
+    loadDefaultTemplate(account).then((tpl) => {
+      if (!userTypedRef.current) setMessage(tpl);
+    });
     startGeneration(account);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, open, lastAccountId]);
