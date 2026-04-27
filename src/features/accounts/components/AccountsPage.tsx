@@ -211,8 +211,15 @@ export default function AccountsPage() {
                 ))}
             {!isLoading && hasMore && (
               <tr ref={sentinelRef}>
-                <td colSpan={10} className="py-4 text-center text-xs text-muted-foreground">
-                  Loading more accounts…
+                <td colSpan={10} className="py-4">
+                  <div className="flex flex-col items-center gap-2">
+                    <Button size="sm" variant="ghost" onClick={loadMore}>
+                      Load more
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Showing {visibleCount} of {accounts.length}
+                    </span>
+                  </div>
                 </td>
               </tr>
             )}
