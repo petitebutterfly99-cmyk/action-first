@@ -58,6 +58,15 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+              >
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs">Email</Label>
               <Input

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ListChecks } from "lucide-react";
+import { AlertCircle, ListChecks } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,19 +14,17 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     if (password.length < 6) {
-      toast({
-        title: "Password too short",
-        description: "Use at least 6 characters.",
-        variant: "destructive",
-      });
+      setError("Use at least 6 characters for your password.");
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -35,12 +33,9 @@ export default function SignupPage() {
       },
     });
     setSubmitting(false);
-    if (error) {
-      toast({
-        title: "Sign-up failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    if (signUpError) {
+      // Inline error preserves name + email so the user doesn't have to retype.
+      setError(signUpError.message);
       return;
     }
     toast({
@@ -67,6 +62,15 @@ export default function SignupPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+              >
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="full_name" className="text-xs">Full name</Label>
               <Input
