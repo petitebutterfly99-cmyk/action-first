@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ListChecks } from "lucide-react";
+import { AlertCircle, ListChecks } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 
 const DEMO_USERS = [
   { name: "Sarah Chen", email: "sarah.chen@demo.app" },
@@ -17,22 +16,20 @@ const DEMO_PASSWORD = "demo1234";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     setSubmitting(false);
-    if (error) {
-      toast({
-        title: "Sign-in failed",
-        description: error.message,
-        variant: "destructive",
-      });
+    if (signInError) {
+      // Inline error — leaves email + password populated so the user can fix and retry.
+      setError(signInError.message);
       return;
     }
     navigate("/", { replace: true });
@@ -41,6 +38,7 @@ export default function LoginPage() {
   const fillDemo = (demoEmail: string) => {
     setEmail(demoEmail);
     setPassword(DEMO_PASSWORD);
+    setError(null);
   };
 
   return (
@@ -60,6 +58,15 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+              >
+                <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="email" className="text-xs">Email</Label>
               <Input

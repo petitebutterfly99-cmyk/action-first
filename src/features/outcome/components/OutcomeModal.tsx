@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { AlertCircle, CalendarIcon, RefreshCw } from "lucide-react";
 import type { Account } from "@/shared/data/accounts";
 import {
   Dialog,
@@ -33,7 +33,8 @@ interface OutcomeModalProps {
   account: Account | null;
   open: boolean;
   onClose: () => void;
-  onSave: (account: Account, outcome: OutreachOutcome) => void;
+  /** May return a Promise — modal awaits it and shows inline retry on rejection. */
+  onSave: (account: Account, outcome: OutreachOutcome) => void | Promise<void>;
   onSkip: (account: Account) => void;
 }
 
@@ -41,6 +42,8 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
   const [status, setStatus] = useState<OutreachOutcomeStatus>("contacted");
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Reset whenever a new account flows in
   useEffect(() => {
@@ -48,17 +51,35 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
       setStatus("contacted");
       setFollowUpDate(undefined);
       setNotes("");
+      setSubmitting(false);
+      setError(null);
     }
   }, [account?.id]);
 
   if (!account) return null;
 
-  const handleSave = () => {
-    onSave(account, { status, followUpDate: followUpDate ?? null, notes });
+  const handleSave = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Status, followUpDate, notes all stay populated on failure.
+      await onSave(account, { status, followUpDate: followUpDate ?? null, notes });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't save this outcome.");
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) return;
+        if (submitting) return;
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">Outreach Sent</DialogTitle>
@@ -127,14 +148,33 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
               className="text-sm resize-none"
             />
           </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+            >
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+              <div className="flex-1">{error}</div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs px-2 -mt-0.5 shrink-0"
+                onClick={handleSave}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onSkip(account)}>
+          <Button variant="ghost" size="sm" onClick={() => onSkip(account)} disabled={submitting}>
             Skip
           </Button>
-          <Button size="sm" onClick={handleSave}>
-            Save and Continue
+          <Button size="sm" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving…" : "Save and Continue"}
           </Button>
         </DialogFooter>
       </DialogContent>

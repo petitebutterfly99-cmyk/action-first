@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer Supabase calls to avoid deadlock inside the callback.
         setTimeout(() => {
           loadProfile(newSession.user.id);
-          activityStore.hydrate();
+          activityStore.hydrate().catch(() => {/* page-level retry handles it */});
         }, 0);
       } else {
         setProfile(null);
@@ -64,15 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           activityStore.clear();
           hadSessionRef.current = false;
         }
-        // Token refresh failure / silent expiry — surface a toast once.
+        // Session went null mid-app (token refresh failure or silent revoke).
+        // ProtectedRoute renders a <Navigate to="/login"> the next render;
+        // surface a one-shot toast so the user knows why.
         if (
-          event === "TOKEN_REFRESHED" &&
+          (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") &&
           !newSession &&
           hadSessionRef.current &&
           !expiredToastShownRef.current
         ) {
           expiredToastShownRef.current = true;
-          toast.error("Your session expired — please sign in again.");
+          toast.error("Session expired. Please sign in again.");
         }
       }
     });
@@ -83,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (existing?.user) {
         hadSessionRef.current = true;
         loadProfile(existing.user.id);
-        activityStore.hydrate();
+        activityStore.hydrate().catch(() => {/* page-level retry handles it */});
       }
       setLoading(false);
     });

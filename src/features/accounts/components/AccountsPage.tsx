@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowUpRight, RefreshCw } from "lucide-react";
 import { AppLayout } from "@/shared/components/AppLayout";
+import { EmptyState } from "@/shared/components/EmptyState";
 import { fetchAccounts, type Account } from "@/shared/data/accounts";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,11 +25,14 @@ export default function AccountsPage() {
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [notInQueueAccount, setNotInQueueAccount] = useState<{ id: string; name: string } | null>(
     null,
   );
 
-  useEffect(() => {
+  const loadAccounts = () => {
+    setIsLoading(true);
+    setLoadError(null);
     let cancelled = false;
     fetchAccounts()
       .then((rows) => {
@@ -37,13 +41,20 @@ export default function AccountsPage() {
           setIsLoading(false);
         }
       })
-      .catch(() => {
-        if (!cancelled) setIsLoading(false);
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            e instanceof Error ? e.message : "We couldn't load your accounts.",
+          );
+          setIsLoading(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  };
+
+  useEffect(() => loadAccounts(), []);
 
   const {
     visible: visibleAccounts,
@@ -119,25 +130,43 @@ export default function AccountsPage() {
                     </td>
                   </tr>
                 ))
-              : accounts.length === 0
+              : loadError
                 ? (
                     <tr>
-                      <td colSpan={10} className="py-12 text-center">
-                        <div className="text-sm font-medium text-foreground mb-1">
-                          No assigned accounts
-                        </div>
-                        <div className="text-xs text-muted-foreground mb-3">
-                          You don't have any accounts assigned yet.
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            (window.location.href = "mailto:admin@example.com")
+                      <td colSpan={10} className="py-8">
+                        <EmptyState
+                          icon={<AlertCircle className="w-6 h-6 text-[hsl(var(--risk-high))]" />}
+                          title="Couldn't load accounts"
+                          body="We ran into a problem loading your accounts."
+                          actions={
+                            <Button size="sm" onClick={loadAccounts}>
+                              <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                              Retry
+                            </Button>
                           }
-                        >
-                          Contact admin
-                        </Button>
+                        />
+                      </td>
+                    </tr>
+                  )
+                : accounts.length === 0
+                ? (
+                    <tr>
+                      <td colSpan={10} className="py-8">
+                        <EmptyState
+                          title="No assigned accounts"
+                          body="You don't have any accounts assigned yet. Reach out to your admin to get a portfolio assigned."
+                          actions={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                (window.location.href = "mailto:admin@example.com")
+                              }
+                            >
+                              Contact admin
+                            </Button>
+                          }
+                        />
                       </td>
                     </tr>
                   )
