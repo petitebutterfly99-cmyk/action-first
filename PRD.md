@@ -211,6 +211,8 @@ A KPI row plus CSM performance panel (`features/analytics/`) render inline above
 - **Account Detail Panel** with activation timeline.
 - **Performance:** infinite scroll (50-row batches via IntersectionObserver) on Action Queue and Accounts so 300+ records render smoothly.
 - **Routing, layout, sidebar, settings page.**
+- **Analytics surface:** KPI row + CSM performance panel rendered above the Action Queue, derived from RLS-scoped data.
+- **Resilience layer:** global `OfflineBanner` driven by `navigator.onLine`; offline-safe sign-out (`scope: "local"`) so the user is never trapped; session-expiry toast in `AuthProvider` for silent token-refresh failures; structured error classification in `useAccountsData` (offline / timeout / server / unknown) with a 10 s timeout race on the Supabase fetch.
 - **Seeded demo data:** 4 demo CSMs (created via the `seed-demo-csms` edge function) and 300 unique B2B SaaS accounts distributed across them with realistic risk, status, ARR, signup-date, and outreach-timestamp distributions, plus seeded activity log entries.
 
 ### 9.2 Mocked / Simulated
