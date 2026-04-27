@@ -142,7 +142,12 @@ Explicit states: loading → *"still finding…"* → *"done for now"* → *"cou
 Persisted in the Supabase `activity_log` table; RLS scopes visible entries to actions on the CSM's assigned accounts (or untargeted entries the CSM created).
 
 ### 6.13 Settings — `/settings`
-**Purpose:** configure risk thresholds and notification preferences.
+**Purpose:** configure risk thresholds and notification preferences. User preferences persist via `useUserSettings`; risk thresholds are stored but not yet consumed by risk recomputation (see HANDOFF → Known gaps).
+
+### 6.14 Analytics Panel
+**Purpose:** give the CSM (and CS leaders) a lightweight read on action funnel + per-CSM performance without leaving the queue.
+
+A KPI row plus CSM performance panel (`features/analytics/`) render inline above the Action Queue, derived from the same RLS-scoped `accounts` and `activity_log` data so per-CSM scoping is preserved.
 
 ---
 
