@@ -72,7 +72,14 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (o) return;
+        if (submitting) return;
+        onClose();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">Outreach Sent</DialogTitle>
@@ -141,14 +148,33 @@ export function OutcomeModal({ account, open, onClose, onSave, onSkip }: Outcome
               className="text-sm resize-none"
             />
           </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-md border border-[hsl(var(--risk-high))]/40 bg-[hsl(var(--badge-urgent-bg))]/40 px-3 py-2 text-xs text-foreground"
+            >
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 text-[hsl(var(--risk-high))] shrink-0" />
+              <div className="flex-1">{error}</div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs px-2 -mt-0.5 shrink-0"
+                onClick={handleSave}
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onSkip(account)}>
+          <Button variant="ghost" size="sm" onClick={() => onSkip(account)} disabled={submitting}>
             Skip
           </Button>
-          <Button size="sm" onClick={handleSave}>
-            Save and Continue
+          <Button size="sm" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving…" : "Save and Continue"}
           </Button>
         </DialogFooter>
       </DialogContent>
