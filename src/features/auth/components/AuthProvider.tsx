@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { activityStore } from "@/features/activity-log";
 
@@ -38,12 +39,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activityStore.setCurrentUser(next?.full_name || null);
   };
 
+  // Track whether we've ever observed an authenticated session so we can
+  // distinguish "never logged in" from "session expired/revoked".
+  const hadSessionRef = useRef(false);
+  const expiredToastShownRef = useRef(false);
+
   useEffect(() => {
     // Set up listener FIRST, then check existing session.
     const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
+        hadSessionRef.current = true;
+        expiredToastShownRef.current = false;
         // Defer Supabase calls to avoid deadlock inside the callback.
         setTimeout(() => {
           loadProfile(newSession.user.id);
@@ -52,7 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
         activityStore.setCurrentUser(null);
-        if (event === "SIGNED_OUT") activityStore.clear();
+        if (event === "SIGNED_OUT") {
+          activityStore.clear();
+          hadSessionRef.current = false;
+        }
+        // Token refresh failure / silent expiry — surface a toast once.
+        if (
+          event === "TOKEN_REFRESHED" &&
+          !newSession &&
+          hadSessionRef.current &&
+          !expiredToastShownRef.current
+        ) {
+          expiredToastShownRef.current = true;
+          toast.error("Your session expired — please sign in again.");
+        }
       }
     });
 
@@ -60,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(existing);
       setUser(existing?.user ?? null);
       if (existing?.user) {
+        hadSessionRef.current = true;
         loadProfile(existing.user.id);
         activityStore.hydrate();
       }
