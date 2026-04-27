@@ -64,6 +64,8 @@ function accountUpdateToRow(updates: Partial<Account>): AccountUpdate {
  * accounts where assigned_csm_id = auth.uid().
  */
 export async function fetchAccounts(): Promise<Account[]> {
+  // TEMP: artificial delay to verify loading skeletons render correctly.
+  await new Promise((resolve) => setTimeout(resolve, 2000));
   const { data, error } = await supabase
     .from("accounts")
     .select("*")
