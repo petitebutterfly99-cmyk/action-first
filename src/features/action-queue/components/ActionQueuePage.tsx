@@ -264,8 +264,8 @@ export default function ActionQueuePage() {
             ) : c.loadError ? (
               <EmptyState
                 icon={<AlertCircle className="w-6 h-6 text-[hsl(var(--risk-high))]" />}
-                title="Couldn't load accounts"
-                body="We ran into a problem loading this queue."
+                title={c.loadError.title}
+                body={c.loadError.message}
                 actions={
                   <Button size="sm" onClick={c.loadQueue}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
