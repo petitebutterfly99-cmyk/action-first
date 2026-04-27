@@ -230,6 +230,8 @@ A KPI row plus CSM performance panel (`features/analytics/`) render inline above
 - Saved filter presets, role-based permissions beyond `csm` / `admin`, team-wide queues, account reassignment workflow.
 - Telemetry-driven risk scoring (current risk is from seeded fields).
 
+> See **`HANDOFF.md` → Known gaps before production** for the engineering-side list (optimistic-update rollback, 1000-row pagination, `AbortController` on fetches, cross-tab sign-out, realtime subscriptions, observability, test coverage, a11y/i18n).
+
 ---
 
 ## 10. Build Principles (as implemented)
