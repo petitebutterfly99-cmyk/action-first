@@ -674,23 +674,7 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
-          guidedCallout={
-            guided.active &&
-            guided.step === "detail" &&
-            guided.focusAccountId === c.selectedAccount.id ? (
-              <GuidedCallout
-                stepNumber={2}
-                totalSteps={3}
-                title="This account is risky because it has not reached team activation"
-                body="No invites sent, low activity, and several days since signup. Send a quick outreach to nudge them toward inviting a teammate."
-                ctaLabel="Send outreach"
-                onCta={() =>
-                  c.selectedAccount && c.setOutreachAccount(c.selectedAccount)
-                }
-                onExit={handleGuidedExit}
-              />
-            ) : null
-          }
+          sendButtonRef={detailSendButtonRef}
         />
       )}
 
@@ -699,7 +683,64 @@ export default function ActionQueuePage() {
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
+        sendButtonRef={outreachSendButtonRef}
       />
+
+      {/* Floating coachmarks ---------------------------------------------- */}
+      {guided.active && guided.step === "highlight" && (
+        <CoachmarkBackdrop targetRef={guidedRowRef} padding={4} radius={10} />
+      )}
+      {guided.active && guided.step === "detail" && (
+        <CoachmarkBackdrop targetRef={detailSendButtonRef} padding={6} radius={6} />
+      )}
+      <CoachmarkPopover
+        open={guided.active && guided.step === "highlight"}
+        targetRef={guidedRowRef}
+        side="bottom"
+        align="start"
+        stepNumber={1}
+        totalSteps={3}
+        title="Start here"
+        body="This account has not invited teammates and is at risk of early churn. Open it to see the activation timeline."
+        ctaLabel="View account details"
+        onCta={() => {
+          if (guidedAccount) c.setSelectedAccount(guidedAccount);
+        }}
+        onExit={handleGuidedExit}
+      />
+      <CoachmarkPopover
+        open={guided.active && guided.step === "detail"}
+        targetRef={detailSendButtonRef}
+        side="left"
+        align="end"
+        stepNumber={2}
+        totalSteps={3}
+        title="This account is risky because it has not reached team activation"
+        body="No invites sent, low activity, and several days since signup. Send a quick outreach to nudge them toward inviting a teammate."
+        ctaLabel="Send outreach"
+        onCta={() => {
+          if (guidedAccount) c.setOutreachAccount(guidedAccount);
+        }}
+        onExit={handleGuidedExit}
+      />
+      <CoachmarkPopover
+        open={guided.active && guided.step === "outreach"}
+        targetRef={outreachSendButtonRef}
+        side="top"
+        align="end"
+        elevated
+        stepNumber={3}
+        totalSteps={3}
+        title="Send your first outreach"
+        body="The message is pre-filled — edit it if you'd like, then send. AI suggestions load in the background and never block you."
+        ctaLabel="Got it"
+        onCta={() => {
+          /* No-op: the user clicks the actual Send Message button. The
+             popover stays anchored to it until the send completes. */
+        }}
+        onExit={handleGuidedExit}
+      />
+
       <GuidedSuccessModal
         open={guidedSuccessOpen}
         hasNext={!!guidedNextAccount}
