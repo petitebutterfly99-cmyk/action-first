@@ -589,38 +589,26 @@ export default function ActionQueuePage() {
                 {c.visibleAccounts.map((account) => {
                   const isGuidedTarget =
                     guided.active &&
-                    guided.step === "highlight" &&
+                    guided.step === "highlight_row" &&
                     guided.focusAccountId === account.id;
                   return (
-                    <div key={account.id} className="space-y-2">
-                      {isGuidedTarget && (
-                        <GuidedCallout
-                          stepNumber={1}
-                          totalSteps={3}
-                          title="Start here"
-                          body="This account has not invited teammates and is at risk of early churn. Open it to see the activation timeline."
-                          ctaLabel="View account details"
-                          onCta={() => c.setSelectedAccount(account)}
-                          onExit={handleGuidedExit}
-                        />
-                      )}
-                      <ActionQueueRow
-                        ref={(el) => (c.cardRefs.current[account.id] = el)}
-                        account={account}
-                        onSendOutreach={c.setOutreachAccount}
-                        onPromptInvite={c.handlePromptInvite}
-                        onMarkReviewed={c.handleMarkReviewed}
-                        onSelect={c.setSelectedAccount}
-                        onSnooze={c.setSnoozeAccount}
-                        selected={c.selectedIds.has(account.id)}
-                        onToggleSelected={c.toggleSelected}
-                        highlight={
-                          c.highlightId === account.id || isGuidedTarget
-                        }
-                        snoozeUntil={c.snoozes[account.id]?.until}
-                        followUpDate={c.followUpDates[account.id]}
-                      />
-                    </div>
+                    <ActionQueueRow
+                      key={account.id}
+                      ref={(el) => (c.cardRefs.current[account.id] = el)}
+                      account={account}
+                      onSendOutreach={c.setOutreachAccount}
+                      onPromptInvite={c.handlePromptInvite}
+                      onMarkReviewed={c.handleMarkReviewed}
+                      onSelect={c.setSelectedAccount}
+                      onSnooze={c.setSnoozeAccount}
+                      selected={c.selectedIds.has(account.id)}
+                      onToggleSelected={c.toggleSelected}
+                      highlight={
+                        c.highlightId === account.id || isGuidedTarget
+                      }
+                      snoozeUntil={c.snoozes[account.id]?.until}
+                      followUpDate={c.followUpDates[account.id]}
+                    />
                   );
                 })}
                 {c.hasMoreAccounts ? (
@@ -708,23 +696,7 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
-          guidedCallout={
-            guided.active &&
-            guided.step === "detail" &&
-            guided.focusAccountId === c.selectedAccount.id ? (
-              <GuidedCallout
-                stepNumber={2}
-                totalSteps={3}
-                title="This account is risky because it has not reached team activation"
-                body="No invites sent, low activity, and several days since signup. Send a quick outreach to nudge them toward inviting a teammate."
-                ctaLabel="Send outreach"
-                onCta={() =>
-                  c.selectedAccount && c.setOutreachAccount(c.selectedAccount)
-                }
-                onExit={handleGuidedExit}
-              />
-            ) : null
-          }
+          sendButtonRef={detailSendRef}
         />
       )}
 
@@ -733,7 +705,48 @@ export default function ActionQueuePage() {
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
+        sendButtonRef={outreachSendRef}
       />
+
+      {/* Guided coachmarks ------------------------------------------------ */}
+      {guided.active && guided.step !== "success" && guided.stepNumber !== null && (
+        <GuidedCoachmark
+          step={guided.step}
+          stepNumber={guided.stepNumber}
+          anchors={{
+            welcome: heroCtaRef,
+            filters_risk: riskFilterRef,
+            filters_status: statusFilterRef,
+            kpi: kpiRowRef,
+            performance: performanceTriggerRef,
+            highlight_row: { current: guided.focusAccountId ? c.cardRefs.current[guided.focusAccountId] ?? null : null },
+            detail_panel: detailSendRef,
+            outreach_modal: outreachSendRef,
+          }}
+          onNext={() => {
+            // Special-case last presentational step ("outreach_modal") — clicking
+            // Next should actually move focus to the outreach Send button (handled
+            // by the user). We just no-op here and let the modal send drive success.
+            if (guided.step === "outreach_modal") return;
+            // Side-effect transitions for steps that need to open something:
+            if (guided.step === "highlight_row" && guidedAccount) {
+              c.setSelectedAccount(guidedAccount);
+              return; // detail-open effect will advance the step
+            }
+            if (guided.step === "detail_panel" && guidedAccount) {
+              c.setOutreachAccount(guidedAccount);
+              return;
+            }
+            guided.next();
+          }}
+          onBack={guided.back}
+          onSkip={() => {
+            setGuidedSuccessOpen(false);
+            guided.exit("user");
+          }}
+        />
+      )}
+
       <GuidedSuccessModal
         open={guidedSuccessOpen}
         hasNext={!!guidedNextAccount}
