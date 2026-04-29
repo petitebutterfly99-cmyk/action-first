@@ -1,4 +1,10 @@
-export { GuidedTourProvider, useGuidedTour } from "./GuidedTourContext";
-export { GuidedCallout } from "./GuidedCallout";
+export {
+  GuidedTourProvider,
+  useGuidedTour,
+  TOUR_STEPS,
+  TOTAL_TOUR_STEPS,
+} from "./GuidedTourContext";
+export { CoachmarkPopover } from "./CoachmarkPopover";
+export { CoachmarkBackdrop } from "./CoachmarkBackdrop";
 export { GuidedSuccessModal } from "./GuidedSuccessModal";
 export type { GuidedStep } from "./GuidedTourContext";
