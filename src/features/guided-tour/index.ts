@@ -6,5 +6,6 @@ export {
 } from "./GuidedTourContext";
 export { CoachmarkPopover } from "./CoachmarkPopover";
 export { CoachmarkBackdrop } from "./CoachmarkBackdrop";
+export { GuidedCoachmark } from "./GuidedCoachmark";
 export { GuidedSuccessModal } from "./GuidedSuccessModal";
 export type { GuidedStep } from "./GuidedTourContext";
