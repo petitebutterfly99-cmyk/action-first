@@ -275,6 +275,22 @@ export default function ActionQueuePage() {
     }
   }, [guided, c.outreachAccount]);
 
+  // If the highlight target gets filtered out (e.g. the user changed
+  // filters or the row was archived), exit gracefully instead of leaving
+  // a popover floating with no anchor.
+  useEffect(() => {
+    if (
+      guided.active &&
+      guided.step === "highlight" &&
+      guided.focusAccountId &&
+      !c.isLoading &&
+      !c.visibleAccounts.some((a) => a.id === guided.focusAccountId)
+    ) {
+      guided.exit("user");
+      setGuidedSuccessOpen(false);
+    }
+  }, [guided, c.visibleAccounts, c.isLoading]);
+
   return (
     <AppLayout
       title="My Accounts Requiring Attention"
