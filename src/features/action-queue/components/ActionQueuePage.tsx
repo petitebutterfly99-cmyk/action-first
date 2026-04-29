@@ -357,21 +357,22 @@ export default function ActionQueuePage() {
               <SelectTrigger className="h-9 w-[200px] text-sm">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
-            <SelectContent>
-              {STATUS_FILTER_OPTIONS.map((opt) => {
-                const count =
-                  opt.value === "all" ? c.statusCounts.all : c.statusCounts[opt.value];
-                return (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center justify-between w-full gap-3">
-                      <span>{opt.label}</span>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+              <SelectContent>
+                {STATUS_FILTER_OPTIONS.map((opt) => {
+                  const count =
+                    opt.value === "all" ? c.statusCounts.all : c.statusCounts[opt.value];
+                  return (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="flex items-center justify-between w-full gap-3">
+                        <span>{opt.label}</span>
+                        <span className="text-xs text-muted-foreground">({count})</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
           {!c.isDefaultFilters && (
             <Button
               variant="ghost"
