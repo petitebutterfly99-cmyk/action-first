@@ -675,6 +675,23 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
+          guidedCallout={
+            guided.active &&
+            guided.step === "detail" &&
+            guided.focusAccountId === c.selectedAccount.id ? (
+              <GuidedCallout
+                stepNumber={2}
+                totalSteps={3}
+                title="This account is risky because it has not reached team activation"
+                body="No invites sent, low activity, and several days since signup. Send a quick outreach to nudge them toward inviting a teammate."
+                ctaLabel="Send outreach"
+                onCta={() =>
+                  c.selectedAccount && c.setOutreachAccount(c.selectedAccount)
+                }
+                onExit={handleGuidedExit}
+              />
+            ) : null
+          }
         />
       )}
 
@@ -682,7 +699,13 @@ export default function ActionQueuePage() {
         account={c.outreachAccount}
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
-        onSend={c.handleSendOutreach}
+        onSend={handleSendOutreachWithGuided}
+      />
+      <GuidedSuccessModal
+        open={guidedSuccessOpen}
+        hasNext={!!guidedNextAccount}
+        onNext={handleGuidedNext}
+        onExit={handleGuidedExit}
       />
       <OutcomeModal
         account={c.outcomeAccount}
