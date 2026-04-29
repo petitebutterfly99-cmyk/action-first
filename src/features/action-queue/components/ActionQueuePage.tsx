@@ -300,11 +300,19 @@ export default function ActionQueuePage() {
         guidedActive={guided.active}
         onStartHighest={startWithHighestRisk}
         onToggleGuided={toggleGuided}
+        ctaRef={heroCtaRef}
       />
 
       {/* Lightweight KPI row + collapsible secondary panel ----------------- */}
-      <KpiRow metrics={metrics} />
-      <CsmPerformancePanel metrics={metrics} />
+      <div ref={kpiRowRef}>
+        <KpiRow metrics={metrics} />
+      </div>
+      <CsmPerformancePanel
+        metrics={metrics}
+        open={performanceOpen}
+        onOpenChange={setPerformanceOpen}
+        triggerRef={performanceTriggerRef}
+      />
 
       {/* Filters --------------------------------------------------------- */}
       <div className="mb-4 pb-4 border-b border-border space-y-3">
@@ -312,40 +320,43 @@ export default function ActionQueuePage() {
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Risk Level
           </span>
-          <ToggleGroup
-            type="multiple"
-            value={c.riskFilter}
-            onValueChange={(v) => {
-              if (v.length > 0) c.setRiskFilter(v as RiskLevel[]);
-            }}
-            className="gap-2"
-          >
-            {RISK_OPTIONS.map((opt) => (
-              <ToggleGroupItem
-                key={opt.value}
-                value={opt.value}
-                aria-label={opt.label}
-                className={cn(
-                  "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
-                  opt.activeClass,
-                )}
-              >
-                <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
-                {opt.label}
-                <span className="ml-2 text-xs opacity-70">({c.riskCounts[opt.value]})</span>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <div ref={riskFilterRef}>
+            <ToggleGroup
+              type="multiple"
+              value={c.riskFilter}
+              onValueChange={(v) => {
+                if (v.length > 0) c.setRiskFilter(v as RiskLevel[]);
+              }}
+              className="gap-2"
+            >
+              {RISK_OPTIONS.map((opt) => (
+                <ToggleGroupItem
+                  key={opt.value}
+                  value={opt.value}
+                  aria-label={opt.label}
+                  className={cn(
+                    "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
+                    opt.activeClass,
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
+                  {opt.label}
+                  <span className="ml-2 text-xs opacity-70">({c.riskCounts[opt.value]})</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-2">
             Queue Status
           </span>
-          <Select
-            value={c.statusFilter}
-            onValueChange={(v) => c.setStatusFilter(v as "all" | AccountStatus)}
-          >
-            <SelectTrigger className="h-9 w-[200px] text-sm">
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
+          <div ref={statusFilterRef}>
+            <Select
+              value={c.statusFilter}
+              onValueChange={(v) => c.setStatusFilter(v as "all" | AccountStatus)}
+            >
+              <SelectTrigger className="h-9 w-[200px] text-sm">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
             <SelectContent>
               {STATUS_FILTER_OPTIONS.map((opt) => {
                 const count =
