@@ -102,6 +102,13 @@ export default function ActionQueuePage() {
   const c = useActionQueueController();
   const guided = useGuidedTour();
 
+  // Refs the floating coachmarks anchor against. They're populated by
+  // child components (the row map, the detail panel, the outreach modal)
+  // and read by the popover/backdrop on each render.
+  const guidedRowRef = useRef<HTMLDivElement | null>(null);
+  const detailSendButtonRef = useRef<HTMLButtonElement | null>(null);
+  const outreachSendButtonRef = useRef<HTMLButtonElement | null>(null);
+
   // Analytics: start/refresh session + derive in-page KPIs.
   const { sessionStartedISO } = useSession();
   const surfacedAccountIds = useMemo(
