@@ -99,6 +99,7 @@ const RISK_OPTIONS: {
  */
 export default function ActionQueuePage() {
   const c = useActionQueueController();
+  const guided = useGuidedTour();
 
   // Analytics: start/refresh session + derive in-page KPIs.
   const { sessionStartedISO } = useSession();
@@ -116,11 +117,170 @@ export default function ActionQueuePage() {
     highRiskAccountIds,
   });
 
+  // Top high-risk actionable account — drives both the hero CTA and the
+  // guided tour's highlighted row.
+  const topHighRiskAccount = useMemo(
+    () =>
+      c.accounts.find(
+        (a) => a.risk === "high" && a.status === "needs_action",
+      ) ?? c.accounts.find((a) => a.risk === "high"),
+    [c.accounts],
+  );
+
+  // Auto-start the tour exactly once after the user's first authenticated
+  // load that surfaces a high-risk account. Persisted per-browser so it
+  // doesn't pop up on every visit.
+  const autoStartTriedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartTriedRef.current) return;
+    if (c.isLoading || c.loadError) return;
+    autoStartTriedRef.current = true;
+    try {
+      if (typeof window !== "undefined") {
+        const seen = window.localStorage.getItem("retainiq:guided-seen");
+        if (!seen && topHighRiskAccount) {
+          guided.start(topHighRiskAccount.id, { source: "auto" });
+          window.localStorage.setItem("retainiq:guided-seen", "1");
+        }
+      }
+    } catch {
+      // localStorage unavailable — silently skip auto-start.
+    }
+  }, [c.isLoading, c.loadError, topHighRiskAccount, guided]);
+
+  // Compute the live "guided account" so it follows state changes (e.g.
+  // status moves, account dropped from queue, etc).
+  const guidedAccount = useMemo(
+    () =>
+      guided.focusAccountId
+        ? c.accounts.find((a) => a.id === guided.focusAccountId) ?? null
+        : null,
+    [guided.focusAccountId, c.accounts],
+  );
+
+  const [guidedSuccessOpen, setGuidedSuccessOpen] = useState(false);
+  // Track outreach-just-sent so we know to advance the tour without
+  // double-firing for non-guided sends.
+  const guidedSendInFlightRef = useRef(false);
+
+  // Intercept the outreach send handler so we can advance the tour.
+  const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
+    const wasGuided = guided.active && guided.focusAccountId === account.id;
+    if (wasGuided) {
+      guidedSendInFlightRef.current = true;
+      void trackEvent({
+        type: "outreach_sent_from_guided_flow",
+        accountId: account.id,
+      });
+    }
+    c.handleSendOutreach(account, message);
+    if (wasGuided) {
+      // Skip the outcome modal for the first guided send; replace it with
+      // the success modal so the user sees a clear "first action complete".
+      c.setOutcomeAccount(null);
+      guided.goTo("success");
+      setGuidedSuccessOpen(true);
+    }
+  };
+
+  const startWithHighestRisk = () => {
+    if (!topHighRiskAccount) return;
+    void trackEvent({
+      type: "highest_risk_cta_clicked",
+      accountId: topHighRiskAccount.id,
+    });
+    // Make sure the row is visible — widen risk filter if needed.
+    if (!c.riskFilter.includes("high")) {
+      c.setRiskFilter(Array.from(new Set([...c.riskFilter, "high"])) as typeof c.riskFilter);
+    }
+    if (c.statusFilter !== "all" && c.statusFilter !== topHighRiskAccount.status) {
+      c.setStatusFilter("all");
+    }
+    guided.start(topHighRiskAccount.id, { source: "manual" });
+    requestAnimationFrame(() => {
+      const el = c.cardRefs.current[topHighRiskAccount.id];
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
+  const toggleGuided = () => {
+    if (guided.active) {
+      guided.exit("user");
+      setGuidedSuccessOpen(false);
+    } else {
+      startWithHighestRisk();
+    }
+  };
+
+  const guidedNextAccount = useMemo(() => {
+    if (!guidedAccount) return undefined;
+    return pickNextBestCandidate(c.accounts, guidedAccount.id, ["high"]);
+  }, [c.accounts, guidedAccount]);
+
+  const handleGuidedNext = () => {
+    setGuidedSuccessOpen(false);
+    if (guidedNextAccount) {
+      guided.start(guidedNextAccount.id, { source: "manual" });
+      requestAnimationFrame(() => {
+        const el = c.cardRefs.current[guidedNextAccount.id];
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    } else {
+      guided.exit("completed");
+    }
+  };
+
+  const handleGuidedExit = () => {
+    setGuidedSuccessOpen(false);
+    guided.exit("user");
+  };
+
+  // When the user opens the detail panel for the guided account, advance.
+  useEffect(() => {
+    if (
+      guided.active &&
+      guided.step === "highlight" &&
+      c.selectedAccount &&
+      c.selectedAccount.id === guided.focusAccountId
+    ) {
+      guided.goTo("detail");
+      void trackEvent({
+        type: "account_detail_opened_from_guided_flow",
+        accountId: c.selectedAccount.id,
+      });
+    }
+  }, [guided, c.selectedAccount]);
+
+  // When the outreach modal opens for the guided account, advance.
+  useEffect(() => {
+    if (
+      guided.active &&
+      (guided.step === "highlight" || guided.step === "detail") &&
+      c.outreachAccount &&
+      c.outreachAccount.id === guided.focusAccountId
+    ) {
+      guided.goTo("outreach");
+      void trackEvent({
+        type: "outreach_modal_opened_from_guided_flow",
+        accountId: c.outreachAccount.id,
+      });
+    }
+  }, [guided, c.outreachAccount]);
+
   return (
     <AppLayout
       title="My Accounts Requiring Attention"
       subtitle="Accounts at risk due to lack of early activation"
     >
+      {/* Purpose-clarifying hero ----------------------------------------- */}
+      <ActionQueueHero
+        highRiskCount={c.riskCounts.high}
+        hasHighestRisk={!!topHighRiskAccount}
+        guidedActive={guided.active}
+        onStartHighest={startWithHighestRisk}
+        onToggleGuided={toggleGuided}
+      />
+
       {/* Lightweight KPI row + collapsible secondary panel ----------------- */}
       <KpiRow metrics={metrics} />
       <CsmPerformancePanel metrics={metrics} />
