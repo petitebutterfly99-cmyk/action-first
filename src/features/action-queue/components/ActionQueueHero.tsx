@@ -1,5 +1,6 @@
 import { ArrowRight, ShieldAlert, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { forwardRef } from "react";
 
 interface ActionQueueHeroProps {
   highRiskCount: number;
@@ -7,14 +8,14 @@ interface ActionQueueHeroProps {
   guidedActive: boolean;
   onStartHighest: () => void;
   onToggleGuided: () => void;
+  /** Ref forwarded to the primary CTA button (used by the guided tour). */
+  ctaRef?: React.Ref<HTMLButtonElement>;
 }
 
 /**
  * Compact hero/intro that explains the queue's purpose in the first
  * five seconds and offers a single primary action: start with the
  * highest-risk account.
- *
- * Kept tight on purpose — this is not a marketing page.
  */
 export function ActionQueueHero({
   highRiskCount,
@@ -22,6 +23,7 @@ export function ActionQueueHero({
   guidedActive,
   onStartHighest,
   onToggleGuided,
+  ctaRef,
 }: ActionQueueHeroProps) {
   return (
     <section
@@ -49,6 +51,7 @@ export function ActionQueueHero({
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <Button
+              ref={ctaRef}
               size="sm"
               className="h-8 text-xs"
               onClick={onStartHighest}

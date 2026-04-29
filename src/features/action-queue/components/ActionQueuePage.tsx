@@ -45,7 +45,7 @@ import {
   trackEvent,
 } from "@/features/analytics";
 import {
-  GuidedCallout,
+  GuidedCoachmark,
   GuidedSuccessModal,
   useGuidedTour,
 } from "@/features/guided-tour";
@@ -163,6 +163,22 @@ export default function ActionQueuePage() {
   // double-firing for non-guided sends.
   const guidedSendInFlightRef = useRef(false);
 
+  // Anchors for guided coachmarks.
+  const heroCtaRef = useRef<HTMLButtonElement | null>(null);
+  const riskFilterRef = useRef<HTMLDivElement | null>(null);
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
+  const kpiRowRef = useRef<HTMLDivElement | null>(null);
+  const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const detailSendRef = useRef<HTMLButtonElement | null>(null);
+  const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+
+  // Controlled state for the CSM Performance collapsible so the tour can
+  // auto-open it on the "performance" step.
+  const [performanceOpen, setPerformanceOpen] = useState(false);
+  useEffect(() => {
+    if (guided.step === "performance") setPerformanceOpen(true);
+  }, [guided.step]);
+
   // Intercept the outreach send handler so we can advance the tour.
   const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
     const wasGuided = guided.active && guided.focusAccountId === account.id;
@@ -235,15 +251,18 @@ export default function ActionQueuePage() {
     guided.exit("user");
   };
 
-  // When the user opens the detail panel for the guided account, advance.
+  // When the user opens the detail panel for the guided account, jump to
+  // the detail-panel step (skipping intermediate intro steps if needed).
   useEffect(() => {
     if (
       guided.active &&
-      guided.step === "highlight" &&
+      guided.step !== "detail_panel" &&
+      guided.step !== "outreach_modal" &&
+      guided.step !== "success" &&
       c.selectedAccount &&
       c.selectedAccount.id === guided.focusAccountId
     ) {
-      guided.goTo("detail");
+      guided.goTo("detail_panel");
       void trackEvent({
         type: "account_detail_opened_from_guided_flow",
         accountId: c.selectedAccount.id,
@@ -255,11 +274,12 @@ export default function ActionQueuePage() {
   useEffect(() => {
     if (
       guided.active &&
-      (guided.step === "highlight" || guided.step === "detail") &&
+      guided.step !== "outreach_modal" &&
+      guided.step !== "success" &&
       c.outreachAccount &&
       c.outreachAccount.id === guided.focusAccountId
     ) {
-      guided.goTo("outreach");
+      guided.goTo("outreach_modal");
       void trackEvent({
         type: "outreach_modal_opened_from_guided_flow",
         accountId: c.outreachAccount.id,
@@ -279,11 +299,19 @@ export default function ActionQueuePage() {
         guidedActive={guided.active}
         onStartHighest={startWithHighestRisk}
         onToggleGuided={toggleGuided}
+        ctaRef={heroCtaRef}
       />
 
       {/* Lightweight KPI row + collapsible secondary panel ----------------- */}
-      <KpiRow metrics={metrics} />
-      <CsmPerformancePanel metrics={metrics} />
+      <div ref={kpiRowRef}>
+        <KpiRow metrics={metrics} />
+      </div>
+      <CsmPerformancePanel
+        metrics={metrics}
+        open={performanceOpen}
+        onOpenChange={setPerformanceOpen}
+        triggerRef={performanceTriggerRef}
+      />
 
       {/* Filters --------------------------------------------------------- */}
       <div className="mb-4 pb-4 border-b border-border space-y-3">
@@ -291,55 +319,59 @@ export default function ActionQueuePage() {
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Risk Level
           </span>
-          <ToggleGroup
-            type="multiple"
-            value={c.riskFilter}
-            onValueChange={(v) => {
-              if (v.length > 0) c.setRiskFilter(v as RiskLevel[]);
-            }}
-            className="gap-2"
-          >
-            {RISK_OPTIONS.map((opt) => (
-              <ToggleGroupItem
-                key={opt.value}
-                value={opt.value}
-                aria-label={opt.label}
-                className={cn(
-                  "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
-                  opt.activeClass,
-                )}
-              >
-                <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
-                {opt.label}
-                <span className="ml-2 text-xs opacity-70">({c.riskCounts[opt.value]})</span>
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <div ref={riskFilterRef}>
+            <ToggleGroup
+              type="multiple"
+              value={c.riskFilter}
+              onValueChange={(v) => {
+                if (v.length > 0) c.setRiskFilter(v as RiskLevel[]);
+              }}
+              className="gap-2"
+            >
+              {RISK_OPTIONS.map((opt) => (
+                <ToggleGroupItem
+                  key={opt.value}
+                  value={opt.value}
+                  aria-label={opt.label}
+                  className={cn(
+                    "h-9 px-3 rounded-md border border-border bg-background text-sm font-medium text-muted-foreground hover:bg-muted transition-colors",
+                    opt.activeClass,
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full mr-2", opt.dotClass)} />
+                  {opt.label}
+                  <span className="ml-2 text-xs opacity-70">({c.riskCounts[opt.value]})</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide ml-2">
             Queue Status
           </span>
-          <Select
-            value={c.statusFilter}
-            onValueChange={(v) => c.setStatusFilter(v as "all" | AccountStatus)}
-          >
-            <SelectTrigger className="h-9 w-[200px] text-sm">
-              <SelectValue placeholder="All" />
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_FILTER_OPTIONS.map((opt) => {
-                const count =
-                  opt.value === "all" ? c.statusCounts.all : c.statusCounts[opt.value];
-                return (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center justify-between w-full gap-3">
-                      <span>{opt.label}</span>
-                      <span className="text-xs text-muted-foreground">({count})</span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          <div ref={statusFilterRef}>
+            <Select
+              value={c.statusFilter}
+              onValueChange={(v) => c.setStatusFilter(v as "all" | AccountStatus)}
+            >
+              <SelectTrigger className="h-9 w-[200px] text-sm">
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_FILTER_OPTIONS.map((opt) => {
+                  const count =
+                    opt.value === "all" ? c.statusCounts.all : c.statusCounts[opt.value];
+                  return (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="flex items-center justify-between w-full gap-3">
+                        <span>{opt.label}</span>
+                        <span className="text-xs text-muted-foreground">({count})</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
           {!c.isDefaultFilters && (
             <Button
               variant="ghost"
@@ -556,38 +588,26 @@ export default function ActionQueuePage() {
                 {c.visibleAccounts.map((account) => {
                   const isGuidedTarget =
                     guided.active &&
-                    guided.step === "highlight" &&
+                    guided.step === "highlight_row" &&
                     guided.focusAccountId === account.id;
                   return (
-                    <div key={account.id} className="space-y-2">
-                      {isGuidedTarget && (
-                        <GuidedCallout
-                          stepNumber={1}
-                          totalSteps={3}
-                          title="Start here"
-                          body="This account has not invited teammates and is at risk of early churn. Open it to see the activation timeline."
-                          ctaLabel="View account details"
-                          onCta={() => c.setSelectedAccount(account)}
-                          onExit={handleGuidedExit}
-                        />
-                      )}
-                      <ActionQueueRow
-                        ref={(el) => (c.cardRefs.current[account.id] = el)}
-                        account={account}
-                        onSendOutreach={c.setOutreachAccount}
-                        onPromptInvite={c.handlePromptInvite}
-                        onMarkReviewed={c.handleMarkReviewed}
-                        onSelect={c.setSelectedAccount}
-                        onSnooze={c.setSnoozeAccount}
-                        selected={c.selectedIds.has(account.id)}
-                        onToggleSelected={c.toggleSelected}
-                        highlight={
-                          c.highlightId === account.id || isGuidedTarget
-                        }
-                        snoozeUntil={c.snoozes[account.id]?.until}
-                        followUpDate={c.followUpDates[account.id]}
-                      />
-                    </div>
+                    <ActionQueueRow
+                      key={account.id}
+                      ref={(el) => (c.cardRefs.current[account.id] = el)}
+                      account={account}
+                      onSendOutreach={c.setOutreachAccount}
+                      onPromptInvite={c.handlePromptInvite}
+                      onMarkReviewed={c.handleMarkReviewed}
+                      onSelect={c.setSelectedAccount}
+                      onSnooze={c.setSnoozeAccount}
+                      selected={c.selectedIds.has(account.id)}
+                      onToggleSelected={c.toggleSelected}
+                      highlight={
+                        c.highlightId === account.id || isGuidedTarget
+                      }
+                      snoozeUntil={c.snoozes[account.id]?.until}
+                      followUpDate={c.followUpDates[account.id]}
+                    />
                   );
                 })}
                 {c.hasMoreAccounts ? (
@@ -675,23 +695,7 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
-          guidedCallout={
-            guided.active &&
-            guided.step === "detail" &&
-            guided.focusAccountId === c.selectedAccount.id ? (
-              <GuidedCallout
-                stepNumber={2}
-                totalSteps={3}
-                title="This account is risky because it has not reached team activation"
-                body="No invites sent, low activity, and several days since signup. Send a quick outreach to nudge them toward inviting a teammate."
-                ctaLabel="Send outreach"
-                onCta={() =>
-                  c.selectedAccount && c.setOutreachAccount(c.selectedAccount)
-                }
-                onExit={handleGuidedExit}
-              />
-            ) : null
-          }
+          sendButtonRef={detailSendRef}
         />
       )}
 
@@ -700,7 +704,48 @@ export default function ActionQueuePage() {
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
+        sendButtonRef={outreachSendRef}
       />
+
+      {/* Guided coachmarks ------------------------------------------------ */}
+      {guided.active && guided.step !== "success" && guided.stepNumber !== null && (
+        <GuidedCoachmark
+          step={guided.step}
+          stepNumber={guided.stepNumber}
+          anchors={{
+            welcome: heroCtaRef,
+            filters_risk: riskFilterRef,
+            filters_status: statusFilterRef,
+            kpi: kpiRowRef,
+            performance: performanceTriggerRef,
+            highlight_row: { current: guided.focusAccountId ? c.cardRefs.current[guided.focusAccountId] ?? null : null },
+            detail_panel: detailSendRef,
+            outreach_modal: outreachSendRef,
+          }}
+          onNext={() => {
+            // Special-case last presentational step ("outreach_modal") — clicking
+            // Next should actually move focus to the outreach Send button (handled
+            // by the user). We just no-op here and let the modal send drive success.
+            if (guided.step === "outreach_modal") return;
+            // Side-effect transitions for steps that need to open something:
+            if (guided.step === "highlight_row" && guidedAccount) {
+              c.setSelectedAccount(guidedAccount);
+              return; // detail-open effect will advance the step
+            }
+            if (guided.step === "detail_panel" && guidedAccount) {
+              c.setOutreachAccount(guidedAccount);
+              return;
+            }
+            guided.next();
+          }}
+          onBack={guided.back}
+          onSkip={() => {
+            setGuidedSuccessOpen(false);
+            guided.exit("user");
+          }}
+        />
+      )}
+
       <GuidedSuccessModal
         open={guidedSuccessOpen}
         hasNext={!!guidedNextAccount}

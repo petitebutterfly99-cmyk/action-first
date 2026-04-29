@@ -9,6 +9,11 @@ import type { MetricsSummary } from "../hooks/useMetrics";
 
 interface CsmPerformancePanelProps {
   metrics: MetricsSummary | null;
+  /** Optional controlled-open state (used by the guided tour). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Optional ref forwarded to the trigger row (for guided-tour anchoring). */
+  triggerRef?: React.Ref<HTMLButtonElement>;
 }
 
 const ACTION_LABEL: Record<keyof MetricsSummary["actionMix"], string> = {
@@ -41,14 +46,15 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
  * Open it when you want a self-check on coverage, action mix, AI usage,
  * filter habits, momentum-modal acceptance, and log reliability.
  */
-export function CsmPerformancePanel({ metrics }: CsmPerformancePanelProps) {
+export function CsmPerformancePanel({ metrics, open, onOpenChange, triggerRef }: CsmPerformancePanelProps) {
   const mixTotal = metrics
     ? Object.values(metrics.actionMix).reduce((a, b) => a + b, 0)
     : 0;
 
   return (
-    <Collapsible className="mb-4">
+    <Collapsible className="mb-4" open={open} onOpenChange={onOpenChange}>
       <CollapsibleTrigger
+        ref={triggerRef}
         className={cn(
           "group flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors",
         )}
