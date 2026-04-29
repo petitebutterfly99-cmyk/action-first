@@ -164,6 +164,22 @@ export default function ActionQueuePage() {
   // double-firing for non-guided sends.
   const guidedSendInFlightRef = useRef(false);
 
+  // Anchors for guided coachmarks.
+  const heroCtaRef = useRef<HTMLButtonElement | null>(null);
+  const riskFilterRef = useRef<HTMLDivElement | null>(null);
+  const statusFilterRef = useRef<HTMLDivElement | null>(null);
+  const kpiRowRef = useRef<HTMLDivElement | null>(null);
+  const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const detailSendRef = useRef<HTMLButtonElement | null>(null);
+  const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+
+  // Controlled state for the CSM Performance collapsible so the tour can
+  // auto-open it on the "performance" step.
+  const [performanceOpen, setPerformanceOpen] = useState(false);
+  useEffect(() => {
+    if (guided.step === "performance") setPerformanceOpen(true);
+  }, [guided.step]);
+
   // Intercept the outreach send handler so we can advance the tour.
   const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
     const wasGuided = guided.active && guided.focusAccountId === account.id;
