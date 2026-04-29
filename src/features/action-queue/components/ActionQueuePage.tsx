@@ -42,8 +42,16 @@ import {
   CsmPerformancePanel,
   useSession,
   useMetrics,
+  trackEvent,
 } from "@/features/analytics";
-import { useMemo } from "react";
+import {
+  GuidedCallout,
+  GuidedSuccessModal,
+  useGuidedTour,
+} from "@/features/guided-tour";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActionQueueHero } from "./ActionQueueHero";
+import { pickNextBestCandidate } from "../api/queueLogic";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
