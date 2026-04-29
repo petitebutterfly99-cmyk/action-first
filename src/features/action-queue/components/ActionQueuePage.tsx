@@ -45,9 +45,8 @@ import {
   trackEvent,
 } from "@/features/analytics";
 import {
-  CoachmarkPopover,
+  GuidedCoachmark,
   GuidedSuccessModal,
-  TOTAL_TOUR_STEPS,
   useGuidedTour,
 } from "@/features/guided-tour";
 import { useEffect, useMemo, useRef, useState } from "react";
