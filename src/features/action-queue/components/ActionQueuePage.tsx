@@ -236,15 +236,18 @@ export default function ActionQueuePage() {
     guided.exit("user");
   };
 
-  // When the user opens the detail panel for the guided account, advance.
+  // When the user opens the detail panel for the guided account, jump to
+  // the detail-panel step (skipping intermediate intro steps if needed).
   useEffect(() => {
     if (
       guided.active &&
-      guided.step === "highlight" &&
+      guided.step !== "detail_panel" &&
+      guided.step !== "outreach_modal" &&
+      guided.step !== "success" &&
       c.selectedAccount &&
       c.selectedAccount.id === guided.focusAccountId
     ) {
-      guided.goTo("detail");
+      guided.goTo("detail_panel");
       void trackEvent({
         type: "account_detail_opened_from_guided_flow",
         accountId: c.selectedAccount.id,
@@ -256,11 +259,12 @@ export default function ActionQueuePage() {
   useEffect(() => {
     if (
       guided.active &&
-      (guided.step === "highlight" || guided.step === "detail") &&
+      guided.step !== "outreach_modal" &&
+      guided.step !== "success" &&
       c.outreachAccount &&
       c.outreachAccount.id === guided.focusAccountId
     ) {
-      guided.goTo("outreach");
+      guided.goTo("outreach_modal");
       void trackEvent({
         type: "outreach_modal_opened_from_guided_flow",
         accountId: c.outreachAccount.id,
