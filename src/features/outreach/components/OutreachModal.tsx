@@ -295,7 +295,7 @@ export function OutreachModal({ account, open, onClose, onSend, sendButtonRef }:
           <Button variant="ghost" size="sm" onClick={onClose} disabled={isSending}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSend} disabled={sendDisabled}>
+          <Button size="sm" ref={sendButtonRef} onClick={handleSend} disabled={sendDisabled}>
             {isSending ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
