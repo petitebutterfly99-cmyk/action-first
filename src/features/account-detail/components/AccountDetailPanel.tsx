@@ -29,11 +29,8 @@ interface AccountDetailPanelProps {
   account: Account;
   onClose: () => void;
   onSendOutreach: (account: Account) => void;
-  /**
-   * Optional slot for a guided-tour callout. Rendered at the very top of
-   * the scroll area so it doesn't compete with the sticky action footer.
-   */
-  guidedCallout?: React.ReactNode;
+  /** Optional ref to the primary send-outreach button — used by the guided tour anchor. */
+  sendButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 const STATE_STYLES: Record<
@@ -64,7 +61,7 @@ export function AccountDetailPanel({
   account,
   onClose,
   onSendOutreach,
-  guidedCallout,
+  sendButtonRef,
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
