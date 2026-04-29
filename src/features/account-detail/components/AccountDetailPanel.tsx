@@ -29,8 +29,11 @@ interface AccountDetailPanelProps {
   account: Account;
   onClose: () => void;
   onSendOutreach: (account: Account) => void;
-  /** Optional ref to the primary send-outreach button — used by the guided tour anchor. */
-  sendButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  /**
+   * Optional slot for a guided-tour callout. Rendered at the very top of
+   * the scroll area so it doesn't compete with the sticky action footer.
+   */
+  guidedCallout?: React.ReactNode;
 }
 
 const STATE_STYLES: Record<
@@ -61,7 +64,7 @@ export function AccountDetailPanel({
   account,
   onClose,
   onSendOutreach,
-  sendButtonRef,
+  guidedCallout,
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
@@ -85,6 +88,7 @@ export function AccountDetailPanel({
 
         <ScrollArea className="flex-1">
           <div className="p-5 space-y-6">
+            {guidedCallout}
             {/* Summary stats */}
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -202,12 +206,7 @@ export function AccountDetailPanel({
 
         {/* Sticky action footer */}
         <div className="border-t bg-card px-5 py-3 space-y-2">
-          <Button
-            ref={sendButtonRef}
-            className="w-full text-xs"
-            size="sm"
-            onClick={() => onSendOutreach(account)}
-          >
+          <Button className="w-full text-xs" size="sm" onClick={() => onSendOutreach(account)}>
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
             Send Outreach
           </Button>
