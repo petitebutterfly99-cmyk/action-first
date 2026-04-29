@@ -16,6 +16,7 @@ import { ActionQueuePage } from "@/features/action-queue";
 import { AccountsPage } from "@/features/accounts";
 import { ActivityLogPage } from "@/features/activity-log";
 import { SettingsPage } from "@/features/settings";
+import { GuidedTourProvider } from "@/features/guided-tour";
 import NotFound from "./pages/NotFound";
 import { OfflineBanner } from "@/shared/components/OfflineBanner";
 
