@@ -17,7 +17,13 @@ export type EventType =
   | "filter_zero_results"
   | "next_account_prompt_shown"
   | "next_account_accepted"
-  | "activity_log_write_failed";
+  | "activity_log_write_failed"
+  | "guided_flow_started"
+  | "highest_risk_cta_clicked"
+  | "account_detail_opened_from_guided_flow"
+  | "outreach_modal_opened_from_guided_flow"
+  | "outreach_sent_from_guided_flow"
+  | "guided_flow_exited";
 
 /**
  * Action sub-types for `action_committed` events. Matches the activity log
