@@ -85,7 +85,6 @@ export function AccountDetailPanel({
 
         <ScrollArea className="flex-1">
           <div className="p-5 space-y-6">
-            {guidedCallout}
             {/* Summary stats */}
             <div className="grid grid-cols-3 gap-2">
               {[
@@ -203,7 +202,12 @@ export function AccountDetailPanel({
 
         {/* Sticky action footer */}
         <div className="border-t bg-card px-5 py-3 space-y-2">
-          <Button className="w-full text-xs" size="sm" onClick={() => onSendOutreach(account)}>
+          <Button
+            ref={sendButtonRef}
+            className="w-full text-xs"
+            size="sm"
+            onClick={() => onSendOutreach(account)}
+          >
             <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
             Send Outreach
           </Button>
