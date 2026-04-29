@@ -1,74 +1,39 @@
-# Floating Coachmark Tour
+# Fix guided tour issues
 
-Replace the current inline guided callouts with **floating popovers anchored to the exact element the user needs to click**, with an optional dimmed backdrop that highlights the target. Built on Radix Popover (already in the project) so positioning, arrows, viewport flipping, and a11y are handled.
+Two bugs in the floating coachmark tour added in the last pass:
 
-## What the user will see
+## Issue 1 — Step 2 looks like it shows twice
 
-- **Step 1** — popover floats next to the highest-risk row, arrow pointing at the row's primary action button. Background is dimmed; the row stays bright and clickable.
-- **Step 2** — popover floats next to the "Send Outreach" button inside the open account detail panel.
-- **Step 3** — popover floats next to the "Send Message" button inside the outreach modal (no backdrop here so the modal stays usable).
-- **Step 4** — success modal (unchanged).
+Step 2 anchors to the "Send Outreach" button inside `AccountDetailPanel`, which is a Radix `Sheet`. Sheets render their own dark overlay at `z-50`. We are also rendering `CoachmarkBackdrop` (a separate dim layer with a cutout) at `z-40` over the same button. The result is two stacked dimming layers behind the same popover, which reads as a duplicate / repeated step.
 
-Every popover keeps the existing affordances: step counter ("Step 1 of 3"), title, body, primary CTA, and an always-visible "Exit guided mode" link so users are never trapped.
+Step 1 doesn't have this problem because the Action Queue row isn't inside a Sheet.
 
-## Implementation
+**Fix:** Skip `CoachmarkBackdrop` for step 2. The Sheet's own overlay already isolates the user's attention, and the popover with arrow plus the bright primary `Send Outreach` button is enough visual focus. Keep the backdrop only for step 1 (queue row, no overlay) and let step 2 / 3 rely on the Sheet/Dialog overlay that's already there.
 
-### 1. New `CoachmarkPopover` component
+## Issue 2 — "Got it" button on step 3 does nothing
 
-A thin wrapper around Radix Popover with our coachmark styling and an arrow.
+Step 3 is the popover on top of the `OutreachModal` pointing at "Send Message". Its `onCta` is currently a no-op comment ("user clicks the actual Send Message button"). So clicking "Got it" feels broken.
 
-- Props: `open`, `targetRef` (or `anchor` element), `side`, `title`, `body`, `ctaLabel`, `onCta`, `onExit`, `stepNumber`, `totalSteps`.
-- Renders into a portal so it floats above everything (including the side sheet).
-- Uses `PopoverAnchor` so the trigger element stays where it is and the popover positions relative to it. This lets us anchor to a row that the user can still interact with normally.
-- Arrow points at the anchor; flips automatically when near the viewport edge.
+**Fix:** Change step-3 CTA behavior to actually dismiss the coachmark. Two clean options:
 
-### 2. New `CoachmarkBackdrop` component
+- Relabel to **"Got it"** and make it close the coachmark only (hide the popover, keep the modal open so the user can still send). Implement by adding a local `step3Dismissed` flag in `ActionQueuePage` that gates the popover's `open` prop. Reset the flag whenever step changes away from `outreach` so re-entering the tour works.
 
-A fixed full-screen overlay (`bg-black/40`) with a CSS cutout around the target's bounding box (computed from `getBoundingClientRect` + `ResizeObserver` + scroll listener). The cutout is achieved with a `box-shadow: 0 0 0 9999px rgba(0,0,0,0.5)` trick on a positioned div sized to the target — no SVG masking needed.
+This matches what users already expect from a "Got it" button.
 
-- Pointer-events: none on the backdrop itself, so the highlighted target stays clickable.
-- Skipped for step 3 (inside the modal — would conflict with Radix Dialog's own overlay).
+## Technical changes
 
-### 3. Refs to anchor against
+Files touched:
 
-- `ActionQueueRow` already accepts a `ref`. The page already stores per-row refs in `c.cardRefs`. Use that directly for step 1.
-- `AccountDetailPanel` — add an internal `ref` on the "Send Outreach" footer button, exposed via a new `sendButtonRef` prop (forwarded ref pattern) so the page can anchor to it for step 2.
-- `OutreachModal` — add a `sendButtonRef` prop the same way for step 3.
+- `src/features/action-queue/components/ActionQueuePage.tsx`
+  - Remove the `<CoachmarkBackdrop … detailSendButtonRef … />` block (step 2).
+  - Add `const [step3Dismissed, setStep3Dismissed] = useState(false)`.
+  - Reset it in an effect when `guided.step !== "outreach"`.
+  - Step-3 `CoachmarkPopover`: set `open={guided.active && guided.step === "outreach" && !step3Dismissed}` and `onCta={() => setStep3Dismissed(true)}`.
 
-### 4. Wire into `ActionQueuePage`
+No changes needed to `CoachmarkPopover`, `CoachmarkBackdrop`, `GuidedTourContext`, or `AccountDetailPanel`.
 
-Replace the three `<GuidedCallout>` insertions with `<CoachmarkPopover>` instances driven by `guided.step`:
+## Out of scope
 
-```text
-guided.step === "highlight"  → anchor: cardRefs.current[focusAccountId]
-guided.step === "detail"     → anchor: detailSendButtonRef.current
-guided.step === "outreach"   → anchor: outreachSendButtonRef.current
-```
-
-A single `<CoachmarkBackdrop targetRef={...} />` is rendered for steps 1 and 2 only.
-
-### 5. Keep existing behavior
-
-- All six analytics events stay wired identically.
-- Auto-start on first login (`localStorage` flag) is unchanged.
-- "Guide me" / "Exit guided mode" toggle in the hero is unchanged.
-- Success modal (step 4) is unchanged — it's already a centered dialog, not anchored.
-- The old `GuidedCallout` component will be deleted once nothing references it.
-
-## Files touched
-
-- **New**: `src/features/guided-tour/CoachmarkPopover.tsx`, `src/features/guided-tour/CoachmarkBackdrop.tsx`
-- **Edit**: `src/features/guided-tour/index.ts` (export new pieces, remove `GuidedCallout`)
-- **Edit**: `src/features/action-queue/components/ActionQueuePage.tsx` (swap callouts → popovers, manage anchor refs)
-- **Edit**: `src/features/account-detail/components/AccountDetailPanel.tsx` (expose `sendButtonRef`, drop the `guidedCallout` slot)
-- **Edit**: `src/features/outreach/components/OutreachModal.tsx` (expose `sendButtonRef`)
-- **Delete**: `src/features/guided-tour/GuidedCallout.tsx`
-
-## Edge cases handled
-
-- **Target scrolled out of view**: backdrop and popover follow on `scroll` / `resize`; if the target unmounts (e.g. user filters it away), the tour auto-exits with reason `"target_lost"`.
-- **Viewport too small for popover on the requested side**: Radix flips it automatically.
-- **Inside the outreach Dialog**: Radix Popover renders into a portal with a higher z-index than the Dialog content, so it stays visible above the modal.
-- **Keyboard users**: popover is focusable; Esc exits the tour (matches the X / "Exit guided mode" behavior).
-
-Approve to switch the tour over to floating coachmarks.
+- No redesign of the tour copy or step order.
+- No changes to analytics events.
+- No change to the auto-start logic or `localStorage` flag.
