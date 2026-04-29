@@ -45,7 +45,8 @@ import {
   trackEvent,
 } from "@/features/analytics";
 import {
-  GuidedCallout,
+  CoachmarkPopover,
+  CoachmarkBackdrop,
   GuidedSuccessModal,
   useGuidedTour,
 } from "@/features/guided-tour";
