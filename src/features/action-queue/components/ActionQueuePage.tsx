@@ -553,23 +553,43 @@ export default function ActionQueuePage() {
               })()
             ) : (
               <>
-                {c.visibleAccounts.map((account) => (
-                  <ActionQueueRow
-                    key={account.id}
-                    ref={(el) => (c.cardRefs.current[account.id] = el)}
-                    account={account}
-                    onSendOutreach={c.setOutreachAccount}
-                    onPromptInvite={c.handlePromptInvite}
-                    onMarkReviewed={c.handleMarkReviewed}
-                    onSelect={c.setSelectedAccount}
-                    onSnooze={c.setSnoozeAccount}
-                    selected={c.selectedIds.has(account.id)}
-                    onToggleSelected={c.toggleSelected}
-                    highlight={c.highlightId === account.id}
-                    snoozeUntil={c.snoozes[account.id]?.until}
-                    followUpDate={c.followUpDates[account.id]}
-                  />
-                ))}
+                {c.visibleAccounts.map((account) => {
+                  const isGuidedTarget =
+                    guided.active &&
+                    guided.step === "highlight" &&
+                    guided.focusAccountId === account.id;
+                  return (
+                    <div key={account.id} className="space-y-2">
+                      {isGuidedTarget && (
+                        <GuidedCallout
+                          stepNumber={1}
+                          totalSteps={3}
+                          title="Start here"
+                          body="This account has not invited teammates and is at risk of early churn. Open it to see the activation timeline."
+                          ctaLabel="View account details"
+                          onCta={() => c.setSelectedAccount(account)}
+                          onExit={handleGuidedExit}
+                        />
+                      )}
+                      <ActionQueueRow
+                        ref={(el) => (c.cardRefs.current[account.id] = el)}
+                        account={account}
+                        onSendOutreach={c.setOutreachAccount}
+                        onPromptInvite={c.handlePromptInvite}
+                        onMarkReviewed={c.handleMarkReviewed}
+                        onSelect={c.setSelectedAccount}
+                        onSnooze={c.setSnoozeAccount}
+                        selected={c.selectedIds.has(account.id)}
+                        onToggleSelected={c.toggleSelected}
+                        highlight={
+                          c.highlightId === account.id || isGuidedTarget
+                        }
+                        snoozeUntil={c.snoozes[account.id]?.until}
+                        followUpDate={c.followUpDates[account.id]}
+                      />
+                    </div>
+                  );
+                })}
                 {c.hasMoreAccounts ? (
                   <div
                     ref={c.queueSentinelRef}
