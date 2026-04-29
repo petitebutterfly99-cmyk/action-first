@@ -362,6 +362,12 @@ export type Database = {
         | "next_account_prompt_shown"
         | "next_account_accepted"
         | "activity_log_write_failed"
+        | "guided_flow_started"
+        | "highest_risk_cta_clicked"
+        | "account_detail_opened_from_guided_flow"
+        | "outreach_modal_opened_from_guided_flow"
+        | "outreach_sent_from_guided_flow"
+        | "guided_flow_exited"
       risk_level: "high" | "medium" | "low"
     }
     CompositeTypes: {
@@ -521,6 +527,12 @@ export const Constants = {
         "next_account_prompt_shown",
         "next_account_accepted",
         "activity_log_write_failed",
+        "guided_flow_started",
+        "highest_risk_cta_clicked",
+        "account_detail_opened_from_guided_flow",
+        "outreach_modal_opened_from_guided_flow",
+        "outreach_sent_from_guided_flow",
+        "guided_flow_exited",
       ],
       risk_level: ["high", "medium", "low"],
     },
