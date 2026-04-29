@@ -24,11 +24,13 @@ interface OutreachModalProps {
   open: boolean;
   onClose: () => void;
   onSend: (account: Account, message: string) => void;
+  /** Optional ref forwarded to the "Send Message" button (for the guided tour). */
+  sendButtonRef?: React.Ref<HTMLButtonElement>;
 }
 
 type SendState = "idle" | "sending" | "error";
 
-export function OutreachModal({ account, open, onClose, onSend }: OutreachModalProps) {
+export function OutreachModal({ account, open, onClose, onSend, sendButtonRef }: OutreachModalProps) {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -293,7 +295,7 @@ export function OutreachModal({ account, open, onClose, onSend }: OutreachModalP
           <Button variant="ghost" size="sm" onClick={onClose} disabled={isSending}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSend} disabled={sendDisabled}>
+          <Button ref={sendButtonRef} size="sm" onClick={handleSend} disabled={sendDisabled}>
             {isSending ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
