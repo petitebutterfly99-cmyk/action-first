@@ -170,14 +170,6 @@ export default function ActionQueuePage() {
   // Track outreach-just-sent so we know to advance the tour without
   // double-firing for non-guided sends.
   const guidedSendInFlightRef = useRef(false);
-  // Local dismissal flag for step 3's "Got it" — hides just the popover
-  // without exiting the tour, so the user can still send the message.
-  const [step3Dismissed, setStep3Dismissed] = useState(false);
-  useEffect(() => {
-    if (guided.step !== "outreach" && step3Dismissed) {
-      setStep3Dismissed(false);
-    }
-  }, [guided.step, step3Dismissed]);
 
   // Intercept the outreach send handler so we can advance the tour.
   const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
@@ -714,9 +706,9 @@ export default function ActionQueuePage() {
       {guided.active && guided.step === "highlight" && (
         <CoachmarkBackdrop targetRef={guidedRowRef} padding={4} radius={10} />
       )}
-      {/* Step 2 deliberately omits CoachmarkBackdrop — the AccountDetailPanel
-          Sheet already renders its own dim overlay, so adding ours stacks
-          two dimming layers and reads as a duplicate step. */}
+      {guided.active && guided.step === "detail" && (
+        <CoachmarkBackdrop targetRef={detailSendButtonRef} padding={6} radius={6} />
+      )}
       <CoachmarkPopover
         open={guided.active && guided.step === "highlight"}
         targetRef={guidedRowRef}
@@ -748,7 +740,7 @@ export default function ActionQueuePage() {
         onExit={handleGuidedExit}
       />
       <CoachmarkPopover
-        open={guided.active && guided.step === "outreach" && !step3Dismissed}
+        open={guided.active && guided.step === "outreach"}
         targetRef={outreachSendButtonRef}
         side="top"
         align="end"
@@ -758,7 +750,10 @@ export default function ActionQueuePage() {
         title="Send your first outreach"
         body="The message is pre-filled — edit it if you'd like, then send. AI suggestions load in the background and never block you."
         ctaLabel="Got it"
-        onCta={() => setStep3Dismissed(true)}
+        onCta={() => {
+          /* No-op: the user clicks the actual Send Message button. The
+             popover stays anchored to it until the send completes. */
+        }}
         onExit={handleGuidedExit}
       />
 
