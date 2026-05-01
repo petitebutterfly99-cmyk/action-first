@@ -10,6 +10,8 @@ interface ActionQueueHeroProps {
   onToggleGuided: () => void;
   /** Ref forwarded to the primary CTA button (used by the guided tour). */
   ctaRef?: React.Ref<HTMLButtonElement>;
+  /** When false, hides the guided tour entry buttons (Start / Guide me). */
+  showGuidedButtons?: boolean;
 }
 
 /**
