@@ -53,6 +53,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionQueueHero } from "./ActionQueueHero";
 import { pickNextBestCandidate } from "../api/queueLogic";
+import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
