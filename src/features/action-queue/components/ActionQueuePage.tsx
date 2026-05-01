@@ -171,6 +171,7 @@ export default function ActionQueuePage() {
   const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const detailSendRef = useRef<HTMLButtonElement | null>(null);
   const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+  const outreachMessageRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Controlled state for the CSM Performance collapsible so the tour can
   // auto-open it on the "performance" step.
@@ -705,6 +706,7 @@ export default function ActionQueuePage() {
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
         sendButtonRef={outreachSendRef}
+        messageFieldRef={outreachMessageRef}
       />
 
       {/* Guided coachmarks ------------------------------------------------ */}
