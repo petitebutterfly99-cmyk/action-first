@@ -64,6 +64,7 @@ export function AccountDetailPanel({
   onClose,
   onSendOutreach,
   sendButtonRef,
+  panelRef,
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
