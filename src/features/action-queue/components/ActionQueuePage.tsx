@@ -784,11 +784,13 @@ export default function ActionQueuePage() {
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
               if (target) {
-                // Advance the tour state immediately so the coachmark moves
-                // to step 8 on the first click, instead of waiting for the
-                // outreach modal's open effect to trigger it.
-                guided.goTo("outreach_modal");
+                // Close the detail panel, open the outreach modal, and
+                // advance the tour in a single batched update. Closing
+                // selectedAccount prevents the detail-panel auto-advance
+                // effect from re-firing and snapping us back to step 7.
+                c.setSelectedAccount(null);
                 c.setOutreachAccount(target);
+                guided.goTo("outreach_modal");
                 return;
               }
             }
