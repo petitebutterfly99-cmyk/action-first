@@ -171,6 +171,19 @@ source of truth:
 - Returns a safe fallback when `useAuth` is called outside the provider
   (HMR safety).
 
+`ResetPasswordPage` (`features/auth/components/ResetPasswordPage.tsx`)
+owns the recovery URL itself rather than relying on `AuthProvider`. It
+parses the URL hash (implicit flow: `#access_token=...&refresh_token=...&type=recovery`),
+the query string (PKCE flow: `?code=...`), and any error params, then
+calls `supabase.auth.setSession(...)` or `exchangeCodeForSession(...)`
+directly. This avoids a race where the global auth listener consumed the
+recovery hash before the page rendered, dropping the user back into
+"request a new link". After a successful `updateUser({ password })` the
+page signs the user out (`scope: "local"`) and routes to `/login` so the
+new password is the credential used to sign in. Leaked-password
+protection (HIBP) is enabled at the auth layer, so breached passwords
+are rejected at this step.
+
 `ProtectedRoute` reads `useAuth()`, shows a loading state while
 `loading === true`, then either renders children or `<Navigate to="/login">`.
 

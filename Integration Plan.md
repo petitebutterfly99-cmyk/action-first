@@ -368,10 +368,13 @@ Action Queue.
 
 ### Auth & RLS Model
 
-- **Roles:** `csm` (default), `admin` (planned via `user_roles` + `has_role()`).
+- **Roles:** `csm` (default), `admin` — stored in the dedicated `user_roles` table (never on `profiles`) and checked via the `has_role(uuid, app_role)` SECURITY DEFINER function. The `SECURITY DEFINER` grant on `public.has_role` is an intentional, documented exception to the "no public security-definer functions" linter rule (required to avoid recursive RLS on `user_roles`); see `HANDOFF.md` → "Security posture".
 - **Visibility:** A CSM only sees rows in `accounts`, `activity_log`, `events`, `profiles`, `user_settings`, `outreach_templates` that belong to them.
-- **Benchmarks** will be readable by all authenticated users, writable only by admins.
-- **No client-side role checks** — all enforcement is in Postgres RLS + a security-definer `has_role()` function.
+- **Benchmarks** are readable by all authenticated users, writable only by admins (via `has_role()`).
+- **No client-side role checks** — all enforcement is in Postgres RLS + the `has_role()` security-definer function.
+- **Trigger-only SECURITY DEFINER functions** (`set_updated_at`, `handle_new_user`, `enforce_single_default_template`) had `EXECUTE` revoked from `anon`/`authenticated`/`public` (migration `20260501_revoke_trigger_function_execute`). They run only via triggers and must never be called directly by clients.
+- **Leaked password protection (HIBP) is enabled** at the auth layer; email auto-confirm is off.
+- **Password reset** (`/reset-password`) takes ownership of the recovery URL hash via `setSession` / `exchangeCodeForSession` to avoid a race with the global `AuthProvider` listener (previously caused users to be bounced back to "request a new link").
 
 ### Edge Cases Handled
 *(to be filled in after the integration lab)*
