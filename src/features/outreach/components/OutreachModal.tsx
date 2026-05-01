@@ -26,11 +26,13 @@ interface OutreachModalProps {
   onSend: (account: Account, message: string) => void;
   /** Optional ref forwarded to the "Send Message" button (for the guided tour). */
   sendButtonRef?: React.Ref<HTMLButtonElement>;
+  /** Optional ref forwarded to the message textarea (for the guided tour). */
+  messageFieldRef?: React.Ref<HTMLTextAreaElement>;
 }
 
 type SendState = "idle" | "sending" | "error";
 
-export function OutreachModal({ account, open, onClose, onSend, sendButtonRef }: OutreachModalProps) {
+export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, messageFieldRef }: OutreachModalProps) {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -221,6 +223,7 @@ export function OutreachModal({ account, open, onClose, onSend, sendButtonRef }:
           </div>
 
           <Textarea
+            ref={messageFieldRef}
             value={message}
             onChange={handleMessageChange}
             rows={4}

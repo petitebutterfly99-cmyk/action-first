@@ -171,6 +171,7 @@ export default function ActionQueuePage() {
   const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const detailSendRef = useRef<HTMLButtonElement | null>(null);
   const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+  const outreachMessageRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Controlled state for the CSM Performance collapsible so the tour can
   // auto-open it on the "performance" step.
@@ -705,6 +706,7 @@ export default function ActionQueuePage() {
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
         sendButtonRef={outreachSendRef}
+        messageFieldRef={outreachMessageRef}
       />
 
       {/* Guided coachmarks ------------------------------------------------ */}
@@ -720,28 +722,34 @@ export default function ActionQueuePage() {
             performance: performanceTriggerRef,
             highlight_row: { current: guided.focusAccountId ? c.cardRefs.current[guided.focusAccountId] ?? null : null },
             detail_panel: detailSendRef,
-            outreach_modal: outreachSendRef,
+            outreach_modal: outreachMessageRef,
           }}
           onNext={() => {
-            // Special-case last presentational step ("outreach_modal") — clicking
-            // Next should actually move focus to the outreach Send button (handled
-            // by the user). We just no-op here and let the modal send drive success.
             if (guided.step === "outreach_modal") return;
-            // Side-effect transitions for steps that need to open something:
             if (guided.step === "highlight_row" && guidedAccount) {
               c.setSelectedAccount(guidedAccount);
-              return; // detail-open effect will advance the step
-            }
-            if (guided.step === "detail_panel" && guidedAccount) {
-              c.setOutreachAccount(guidedAccount);
               return;
+            }
+            if (guided.step === "detail_panel") {
+              const target = c.selectedAccount ?? guidedAccount;
+              if (target) {
+                c.setOutreachAccount(target);
+                return;
+              }
             }
             guided.next();
           }}
           onBack={guided.back}
           onSkip={() => {
-            setGuidedSuccessOpen(false);
+            // Fully tear down the tour AND any surfaces it opened, so the X
+            // and "End guided tour" button truly exit on every step.
             guided.exit("user");
+            c.setOutreachAccount(null);
+            if (c.selectedAccount && c.selectedAccount.id === guided.focusAccountId) {
+              c.setSelectedAccount(null);
+            }
+            setPerformanceOpen(false);
+            setGuidedSuccessOpen(false);
           }}
         />
       )}
