@@ -267,6 +267,9 @@ export default function ActionQueuePage() {
 
   const handleGuidedNext = () => {
     setGuidedSuccessOpen(false);
+    // Reaching the success modal means the CSM completed the tour at
+    // least once — hide the hero entry buttons going forward.
+    disableGuidedButtonsIfNeeded();
     if (guidedNextAccount) {
       guided.start(guidedNextAccount.id, { source: "manual" });
       requestAnimationFrame(() => {
@@ -281,6 +284,7 @@ export default function ActionQueuePage() {
   const handleGuidedExit = () => {
     setGuidedSuccessOpen(false);
     guided.exit("user");
+    disableGuidedButtonsIfNeeded();
   };
 
   // Guard: once the user explicitly ends the tour, ignore any in-flight
@@ -301,6 +305,7 @@ export default function ActionQueuePage() {
     }
     setPerformanceOpen(false);
     setGuidedSuccessOpen(false);
+    disableGuidedButtonsIfNeeded();
   };
 
   // When the user opens the detail panel for the guided account, jump to
