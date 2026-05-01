@@ -152,7 +152,10 @@ export function CoachmarkPopover({
           }
         }}
         className={cn(
-          "fixed z-[60] w-[320px] rounded-lg border border-primary/40 bg-popover text-popover-foreground shadow-xl p-4",
+          // pointer-events-auto so the popover stays interactive even when
+          // a Radix Sheet/Dialog locks scroll and disables pointer events
+          // on the document body.
+          "fixed z-[60] w-[320px] rounded-lg border border-primary/40 bg-popover text-popover-foreground shadow-xl p-4 pointer-events-auto",
           "animate-in fade-in zoom-in-95",
           pos ? "" : "opacity-0",
         )}
