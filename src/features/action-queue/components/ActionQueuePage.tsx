@@ -746,18 +746,53 @@ export default function ActionQueuePage() {
       {c.selectedAccount && (
         <AccountDetailPanel
           account={c.selectedAccount}
-          onClose={() => c.setSelectedAccount(null)}
+          onClose={() => {
+            // While the guided tour is on the detail-panel step, the user
+            // can only leave via the coachmark "Open send dialog" action.
+            // Outside-clicks (e.g. on the floating coachmark itself) must
+            // not close the panel and strand the tour on step 7.
+            if (
+              guided.active &&
+              guided.step === "detail_panel" &&
+              c.selectedAccount?.id === guided.focusAccountId
+            ) {
+              return;
+            }
+            c.setSelectedAccount(null);
+          }}
           onSendOutreach={c.setOutreachAccount}
           panelRef={detailPanelRef}
+          blockAutoDismiss={
+            guided.active &&
+            guided.step === "detail_panel" &&
+            c.selectedAccount?.id === guided.focusAccountId
+          }
         />
       )}
 
       <OutreachModal
         account={c.outreachAccount}
         open={!!c.outreachAccount}
-        onClose={() => c.setOutreachAccount(null)}
+        onClose={() => {
+          // While the guided tour is on the outreach-modal step, only the
+          // coachmark "End guided tour" or sending the message should close
+          // it. Outside-clicks must not strand the tour on step 8.
+          if (
+            guided.active &&
+            guided.step === "outreach_modal" &&
+            c.outreachAccount?.id === guided.focusAccountId
+          ) {
+            return;
+          }
+          c.setOutreachAccount(null);
+        }}
         onSend={handleSendOutreachWithGuided}
         messageFieldRef={outreachMessageRef}
+        blockAutoDismiss={
+          guided.active &&
+          guided.step === "outreach_modal" &&
+          c.outreachAccount?.id === guided.focusAccountId
+        }
       />
 
       {/* Guided coachmarks ------------------------------------------------ */}
@@ -784,13 +819,13 @@ export default function ActionQueuePage() {
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
               if (target) {
-                // Close the detail panel, open the outreach modal, and
-                // advance the tour in a single batched update. Closing
-                // selectedAccount prevents the detail-panel auto-advance
-                // effect from re-firing and snapping us back to step 7.
-                c.setSelectedAccount(null);
-                c.setOutreachAccount(target);
+                // Advance the tour FIRST so the detail-panel close handler
+                // (and any auto-advance effects) see the new step and don't
+                // re-render step 7. Then open the outreach modal and close
+                // the detail panel. Order matters here.
                 guided.goTo("outreach_modal");
+                c.setOutreachAccount(target);
+                c.setSelectedAccount(null);
                 return;
               }
             }
