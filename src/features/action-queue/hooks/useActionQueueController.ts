@@ -442,6 +442,7 @@ export function useActionQueueController() {
     loadMoreAccounts,
     snoozedCount,
     needsActionCount,
+    highRiskVisibleCount,
     contactedTodayCount,
     isDefaultFilters,
     // Filters
