@@ -289,6 +289,7 @@ export type Database = {
           daily_digest: boolean
           email_alerts_high_risk: boolean
           risk_thresholds: Json
+          show_guided_tour_buttons: boolean
           slack_notifications: boolean
           updated_at: string
           user_id: string
@@ -297,6 +298,7 @@ export type Database = {
           daily_digest?: boolean
           email_alerts_high_risk?: boolean
           risk_thresholds?: Json
+          show_guided_tour_buttons?: boolean
           slack_notifications?: boolean
           updated_at?: string
           user_id: string
@@ -305,6 +307,7 @@ export type Database = {
           daily_digest?: boolean
           email_alerts_high_risk?: boolean
           risk_thresholds?: Json
+          show_guided_tour_buttons?: boolean
           slack_notifications?: boolean
           updated_at?: string
           user_id?: string
