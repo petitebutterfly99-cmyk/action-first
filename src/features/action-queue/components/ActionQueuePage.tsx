@@ -650,6 +650,7 @@ export default function ActionQueuePage() {
                       }
                       snoozeUntil={c.snoozes[account.id]?.until}
                       followUpDate={c.followUpDates[account.id]}
+                      nameLinkRef={isGuidedTarget ? guidedRowNameRef : undefined}
                     />
                   );
                 })}
