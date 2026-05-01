@@ -28,11 +28,17 @@ interface OutreachModalProps {
   sendButtonRef?: React.Ref<HTMLButtonElement>;
   /** Optional ref forwarded to the message textarea (for the guided tour). */
   messageFieldRef?: React.Ref<HTMLTextAreaElement>;
+  /**
+   * When true, prevents Radix from closing the dialog on outside pointer
+   * events / Escape. Used during the guided tour so coachmark interactions
+   * don't dismiss the modal.
+   */
+  blockAutoDismiss?: boolean;
 }
 
 type SendState = "idle" | "sending" | "error";
 
-export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, messageFieldRef }: OutreachModalProps) {
+export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, messageFieldRef, blockAutoDismiss = false }: OutreachModalProps) {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -203,6 +209,7 @@ export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, m
   const handleOpenChange = (o: boolean) => {
     if (o) return;
     if (sendState === "sending") return; // do not allow closing mid-send
+    if (blockAutoDismiss) return; // guided tour controls dismissal
     onClose();
   };
 
@@ -213,7 +220,18 @@ export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, m
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onPointerDownOutside={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-sm">Send Outreach to {account.name}</DialogTitle>
         </DialogHeader>

@@ -57,7 +57,7 @@ export function CoachmarkBackdrop({
     return (
       <div
         onClick={onDismiss}
-        className="fixed inset-0 z-[55] bg-foreground/30 animate-in fade-in"
+        className="fixed inset-0 z-[55] bg-foreground/30 animate-in fade-in pointer-events-auto"
         aria-hidden
       />
     );
@@ -68,14 +68,14 @@ export function CoachmarkBackdrop({
       {/* Top */}
       <div
         onClick={onDismiss}
-        className="fixed left-0 right-0 z-[55] bg-foreground/40 animate-in fade-in"
+        className="fixed left-0 right-0 z-[55] bg-foreground/40 animate-in fade-in pointer-events-auto"
         style={{ top: 0, height: Math.max(0, rect.top - padding) }}
         aria-hidden
       />
       {/* Bottom */}
       <div
         onClick={onDismiss}
-        className="fixed left-0 right-0 z-[55] bg-foreground/40 animate-in fade-in"
+        className="fixed left-0 right-0 z-[55] bg-foreground/40 animate-in fade-in pointer-events-auto"
         style={{
           top: rect.top + rect.height + padding,
           bottom: 0,
@@ -85,7 +85,7 @@ export function CoachmarkBackdrop({
       {/* Left */}
       <div
         onClick={onDismiss}
-        className="fixed z-[55] bg-foreground/40 animate-in fade-in"
+        className="fixed z-[55] bg-foreground/40 animate-in fade-in pointer-events-auto"
         style={{
           top: Math.max(0, rect.top - padding),
           left: 0,
@@ -97,7 +97,7 @@ export function CoachmarkBackdrop({
       {/* Right */}
       <div
         onClick={onDismiss}
-        className="fixed z-[55] bg-foreground/40 animate-in fade-in"
+        className="fixed z-[55] bg-foreground/40 animate-in fade-in pointer-events-auto"
         style={{
           top: Math.max(0, rect.top - padding),
           left: rect.left + rect.width + padding,

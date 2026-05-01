@@ -1,21 +1,35 @@
-## Fix Guide 7 → 8 transition
+I reproduced the issue: when Step 7’s “Open send dialog” coachmark is clicked, the click occurs outside the account detail sheet from Radix’s perspective. The sheet closes first, which unmounts the anchor and leaves the tour on Step 7, so it appears to show Step 7 again instead of progressing to Step 8. The same outside-interaction timing can also cause Step 8’s “End guided tour” to require a second click.
 
-When the user clicks "Open send dialog" on Guide 7, the popover currently re-renders Guide 7 instead of advancing to Guide 8. Root cause is a race between the explicit `goTo("outreach_modal")` and the existing detail-panel auto-advance effect: the AccountDetailPanel stays mounted with the same `selectedAccount`, so on the next render the auto-advance effect can fire and snap the tour back to `detail_panel` (step 7).
+Plan:
 
-### Change
+1. Add a tour-transition guard in `ActionQueuePage.tsx`
+   - Track when the tour is intentionally transitioning from Step 7 to Step 8.
+   - Use this guard to ignore the detail sheet’s close callback during the “Open send dialog” transition.
+   - Move the tour to `outreach_modal` before opening the outreach modal, then close the detail panel, so the UI cannot render Step 7 again during the intermediate state.
 
-In `src/features/action-queue/components/ActionQueuePage.tsx`, update the `onNext` handler for the `detail_panel` step so a single click does three things in one batched update:
+2. Make guided modal close handlers tour-aware
+   - Replace direct `onClose={() => c.setSelectedAccount(null)}` and `onClose={() => c.setOutreachAccount(null)}` handlers with stable handlers that:
+     - do not close the detail panel while Step 7 is transitioning to Step 8,
+     - do not close/re-open the outreach modal during Step 8’s explicit exit,
+     - keep normal non-tour behavior unchanged.
 
-1. Close the detail panel (`c.setSelectedAccount(null)`) — this prevents the detail-panel auto-advance effect from re-triggering after the transition.
-2. Open the outreach modal (`c.setOutreachAccount(target)`).
-3. Advance the tour (`guided.goTo("outreach_modal")`).
+3. Prevent outside-click dismissal from stealing coachmark clicks
+   - In `AccountDetailPanel`, add optional props to prevent Radix outside interactions while the guided tour is controlling Step 7.
+   - In `OutreachModal`, add optional props to prevent Radix outside interactions while Step 8 is active.
+   - Pass these props only during the relevant guided steps, so regular users can still dismiss panels/modals normally outside the tour.
 
-Also tighten the auto-advance effect that promotes the tour to `detail_panel`: it should only fire while the tour is still on an "earlier than detail_panel" step. Concretely: instead of "step is anything except detail_panel/outreach_modal/success", check the step's index against `TOUR_STEPS.indexOf("detail_panel")` and only promote when the current step is *before* detail_panel. This prevents the effect from re-firing after the user has already moved past step 7.
+4. Harden the Step 7 and Step 8 actions
+   - Step 7 “Open send dialog” will perform one deterministic transition:
+     - set tour step to `outreach_modal`,
+     - open outreach modal for the same guided account,
+     - close detail panel without allowing auto-advance effects to snap back.
+   - Step 8 “End guided tour” will perform one deterministic exit:
+     - mark the tour as ended,
+     - close outreach modal/detail panel/outcome modal,
+     - exit guided mode once, without rendering Step 8 again.
 
-### Files
-
-- `src/features/action-queue/components/ActionQueuePage.tsx` — update the detail_panel branch of `onNext` and tighten the two `useEffect` blocks that auto-advance the tour based on `selectedAccount` / `outreachAccount`.
-
-### Out of scope
-
-No new steps, no copy changes, no new refs.
+5. Verify in browser after implementation
+   - Run through Step 6 → Step 7 → Step 8.
+   - Confirm “Open send dialog” opens the outreach modal on the first click and displays Step 8.
+   - Confirm Step 7 does not reappear.
+   - Confirm Step 8 “End guided tour” exits on the first click and does not reappear.
