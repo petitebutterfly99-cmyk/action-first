@@ -1,41 +1,21 @@
-## Plan: Stabilize Guided Tour Steps 6–8
+## Fix Guide 7 → 8 transition
 
-I’ll make a targeted fix to the guided tour flow so each step highlights the intended surface and advances/exits on the first click.
+When the user clicks "Open send dialog" on Guide 7, the popover currently re-renders Guide 7 instead of advancing to Guide 8. Root cause is a race between the explicit `goTo("outreach_modal")` and the existing detail-panel auto-advance effect: the AccountDetailPanel stays mounted with the same `selectedAccount`, so on the next render the auto-advance effect can fire and snap the tour back to `detail_panel` (step 7).
 
-### 1. Guide 6: highlight the correct high-risk record and make the link focusable
-- Change Guide 6’s target selection from a stale/raw account lookup to the first visible high-risk account in the current sorted list, matching what the user actually sees.
-- When the tour reaches Guide 6, automatically widen filters if needed, reveal the row in the virtual/infinite list, and scroll it into view so the coachmark can anchor to it.
-- Add a dedicated ref for the account-name/open-detail button inside the row, so the guide highlights the link that opens the detail modal instead of the whole row container.
-- Keep the existing row pulse/highlight as a secondary visual cue.
+### Change
 
-### 2. Guide 7: focus the whole detail modal, not the “Send Outreach” button
-- Add a ref to the detail panel/sheet container and anchor Guide 7 to that container.
-- Stop using the `Send Outreach` button ref as the Guide 7 anchor.
-- Update the Guide 7 copy to make it clear that the user is reviewing the detail modal before opening the send dialog.
+In `src/features/action-queue/components/ActionQueuePage.tsx`, update the `onNext` handler for the `detail_panel` step so a single click does three things in one batched update:
 
-### 3. Guide 7 double-open bug: make “Open send dialog” advance immediately
-- Update the “Open send dialog” handler so that, on the first click, it both opens the outreach modal and explicitly advances tour state to Guide 8.
-- Tighten the existing auto-advance effect so it doesn’t re-route back to Guide 7 while the outreach modal is being opened.
-- This should remove the current behavior where Guide 7 appears a second time and only opens the outreach modal on the second click.
+1. Close the detail panel (`c.setSelectedAccount(null)`) — this prevents the detail-panel auto-advance effect from re-triggering after the transition.
+2. Open the outreach modal (`c.setOutreachAccount(target)`).
+3. Advance the tour (`guided.goTo("outreach_modal")`).
 
-### 4. Guide 8: make “End guided tour” exit on the first click
-- Replace the inline skip handler with one stable shared `endGuidedTour` callback.
-- Use that same handler for the X button, backdrop dismiss, Escape, and the final “End guided tour” button.
-- Close all tour-opened surfaces in that handler: outreach dialog, detail panel, performance panel, success modal, and any pending outcome modal.
-- Add a small guard so Guide 8 cannot re-render from stale `outreachAccount` state after the tour has been ended.
+Also tighten the auto-advance effect that promotes the tour to `detail_panel`: it should only fire while the tour is still on an "earlier than detail_panel" step. Concretely: instead of "step is anything except detail_panel/outreach_modal/success", check the step's index against `TOUR_STEPS.indexOf("detail_panel")` and only promote when the current step is *before* detail_panel. This prevents the effect from re-firing after the user has already moved past step 7.
 
-### 5. Clean up related ref warnings
-- The browser console shows a React warning caused by a ref being passed through `DialogFooter`, which is a function component.
-- I’ll remove the now-unused outreach send-button ref wiring, since Guide 8 should anchor to the message field only.
+### Files
 
-### Files to update
-- `src/features/action-queue/components/ActionQueuePage.tsx`
-- `src/features/action-queue/components/ActionQueueRow.tsx`
-- `src/features/account-detail/components/AccountDetailPanel.tsx`
-- `src/features/guided-tour/GuidedCoachmark.tsx`
-- `src/features/outreach/components/OutreachModal.tsx`
+- `src/features/action-queue/components/ActionQueuePage.tsx` — update the detail_panel branch of `onNext` and tighten the two `useEffect` blocks that auto-advance the tour based on `selectedAccount` / `outreachAccount`.
 
-### Expected result
-- Guide 6 highlights the first high-risk record’s open-detail link and can open the detail modal from there.
-- Guide 7 highlights the whole detail modal and opens the send dialog on the first “Open send dialog” click.
-- Guide 8’s “End guided tour” exits immediately on the first click and does not show Guide 8 again.
+### Out of scope
+
+No new steps, no copy changes, no new refs.
