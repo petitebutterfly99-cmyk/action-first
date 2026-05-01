@@ -96,6 +96,7 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
       highlight = false,
       snoozeUntil,
       followUpDate,
+      nameLinkRef,
     },
     ref,
   ) {
