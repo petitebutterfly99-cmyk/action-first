@@ -136,8 +136,7 @@ export function CoachmarkPopover({
       )}
       {!withBackdrop && (
         <div
-          onClick={onSkip}
-          className="fixed inset-0 z-[55] bg-foreground/20 animate-in fade-in"
+          className="fixed inset-0 z-[55] bg-foreground/20 animate-in fade-in pointer-events-none"
           aria-hidden
         />
       )}
