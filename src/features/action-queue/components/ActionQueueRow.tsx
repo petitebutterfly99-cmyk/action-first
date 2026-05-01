@@ -28,6 +28,8 @@ interface ActionQueueRowProps {
   highlight?: boolean;
   snoozeUntil?: Date;
   followUpDate?: Date;
+  /** Optional ref forwarded to the account-name link (for the guided tour). */
+  nameLinkRef?: React.Ref<HTMLButtonElement>;
 }
 
 const STATUS_PILL: Record<AccountStatus, { label: string; className: string } | null> = {
