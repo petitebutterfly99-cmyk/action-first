@@ -369,6 +369,7 @@ export default function ActionQueuePage() {
         onStartHighest={startWithHighestRisk}
         onToggleGuided={toggleGuided}
         ctaRef={heroCtaRef}
+        showGuidedButtons={showGuidedButtons}
       />
 
       {/* Lightweight KPI row + collapsible secondary panel ----------------- */}
