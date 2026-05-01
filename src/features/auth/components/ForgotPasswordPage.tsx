@@ -7,6 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
+function getPasswordResetRedirectUrl() {
+  const url = new URL("/reset-password", window.location.origin);
+  const previewToken = new URLSearchParams(window.location.search).get("__lovable_token");
+
+  if (previewToken) {
+    url.searchParams.set("__lovable_token", previewToken);
+  }
+
+  return url.toString();
+}
+
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
@@ -17,7 +28,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setSubmitting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getPasswordResetRedirectUrl(),
     });
     setSubmitting(false);
     if (error) {
