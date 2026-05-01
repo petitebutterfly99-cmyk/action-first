@@ -1,50 +1,52 @@
 ## Goal
-Make the password reset link reliably open the “create a new password” screen in the Lovable preview/published app, instead of sending the user back to the forgot-password resend flow.
+Apply the agreed security fixes and reflect them in the project docs.
 
-## What I’ll change
+## Changes
 
-1. **Make reset verification explicit on `/reset-password`**
-   - Update `ResetPasswordPage.tsx` so it can directly consume the recovery URL hash when the user lands from the email link.
-   - If the URL contains `access_token`, `refresh_token`, and `type=recovery`, call `supabase.auth.setSession(...)` immediately, instead of relying only on the global auth provider to detect the recovery session.
-   - Keep support for PKCE links via `?code=...` using `exchangeCodeForSession(...)`.
+### 1. Enable Leaked Password Protection (HIBP)
+Run `configure_auth` with `password_hibp_enabled: true` (other auth settings unchanged: signups enabled, email auto-confirm off, anonymous users off). New/changed passwords will be checked against the Have I Been Pwned database.
 
-2. **Prevent accidental “invalid link” redirects while auth is still settling**
-   - Add a short, deterministic verification path: parse URL params first, perform any needed session setup, then show the password form when a reset session exists.
-   - Avoid marking the link invalid just because the auth context has not updated yet.
+### 2. Revoke EXECUTE on trigger-only SECURITY DEFINER functions
+Add a migration that revokes `EXECUTE` from `anon`, `authenticated`, and `public` on:
+- `public.set_updated_at()`
+- `public.handle_new_user()`
+- `public.enforce_single_default_template()`
 
-3. **Keep `/reset-password` public and focused on password creation**
-   - Do not route successful recovery sessions through `PublicOnlyRoute`, so authenticated recovery sessions are not bounced away before they can update their password.
-   - Preserve the existing UI states: verifying, ready/new-password form, and invalid-link message.
+These functions only fire from triggers — clients never need to call them. This silences 4 of the 6 SECURITY DEFINER linter warnings without changing app behavior.
 
-4. **Improve post-reset cleanup**
-   - After `updateUser({ password })` succeeds, sign out locally and navigate to `/login` with a success toast, so the user signs in again with their new password.
-   - Clear recovery tokens from the address bar after the reset session is established.
-
-5. **Update implementation notes**
-   - Refresh `.lovable/plan.md` to reflect the corrected root cause and the new fix.
-
-## Technical details
-
-The current reset page depends primarily on `useAuth().session`. In practice, the recovery link can arrive with tokens in the URL hash, and the reset page may see `session === null` before the auth provider has settled. That causes the page to classify the link as invalid and show the “Request a new link” path.
-
-The fix is to make the reset page self-sufficient for recovery URLs:
-
-```ts
-if (type === "recovery" && access_token && refresh_token) {
-  await supabase.auth.setSession({ access_token, refresh_token });
-  showNewPasswordForm();
-}
+```sql
+REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION public.enforce_single_default_template() FROM anon, authenticated, public;
 ```
 
-This removes the race for implicit recovery links while keeping the auth provider as the normal app-wide session source once the session is established.
+### 3. Document `has_role()` as accepted risk
+- `public.has_role(uuid, app_role)` stays `SECURITY DEFINER` and EXECUTE-grantable to authenticated users. This is the recommended Lovable pattern for non-recursive RLS role checks; the function returns only a boolean.
+- Mark the two remaining linter findings (`SUPA_anon_security_definer_function_executable` and `SUPA_authenticated_security_definer_function_executable` for `has_role`) as ignored with this rationale.
+- Update the project security memory to record the accepted risk.
 
-## Files to edit
+### 4. Update markdown docs (synced to GitHub via the GitHub integration)
+Add a "Security posture" section to `HANDOFF.md` and a brief mention in `ARCHITECTURE.md` covering:
+- RLS scoping summary (already partially documented).
+- Roles live in `user_roles`, checked via `has_role()` (intentional `SECURITY DEFINER` exception).
+- Trigger-only definer functions had public EXECUTE revoked.
+- HIBP is enabled; auto-confirm email is off.
+- Password reset flow takes ownership of the recovery hash via `setSession`.
 
-- `src/features/auth/components/ResetPasswordPage.tsx`
-- `.lovable/plan.md`
+Also note in `Integration Plan.md` that the `has_role()` SECURITY DEFINER usage is an accepted, documented exception.
 
-## Not changing
+### 5. Files touched
+- `supabase/migrations/<timestamp>_revoke_trigger_function_execute.sql` (new)
+- `HANDOFF.md` (append "Security posture" section before/after Accessibility section)
+- `ARCHITECTURE.md` (short note in the auth/data flow area pointing to HANDOFF security section)
+- `Integration Plan.md` (one-line clarification on the `has_role` exception)
+- Security memory (already updated in this session — no further file change)
 
-- No database changes.
-- No backend function changes.
-- No auth email template changes unless a separate issue is found later with the email link itself.
+### 6. Not changing
+- `has_role()` signature, body, or grants.
+- Any RLS policy.
+- Any client code.
+- Auth providers/social login config.
+
+## After approval
+GitHub sync is bidirectional and automatic — once these edits land, they will appear on the connected GitHub repository without any manual push.
