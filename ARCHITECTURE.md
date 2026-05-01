@@ -176,7 +176,7 @@ source of truth:
 
 ### 3. Data layer (Cloud-backed)
 
-Account data is real Supabase, RLS-scoped to `assigned_csm_id = auth.uid()`:
+Account data is real Supabase, RLS-scoped to `assigned_csm_id = auth.uid()`. Admin-only writes (e.g. `benchmarks`) and the `user_roles` table are gated by the `SECURITY DEFINER` `has_role()` function — see `HANDOFF.md` → "Security posture" for the full security model:
 
 ```
 useAccountsData (hook)
