@@ -344,6 +344,7 @@ export default function ActionQueuePage() {
   // outreach_modal step.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (backInFlightRef.current) return;
     if (!guided.active || !guided.step) return;
     const outreachIdx = TOUR_STEPS.indexOf("outreach_modal");
     const currentIdx = TOUR_STEPS.indexOf(
