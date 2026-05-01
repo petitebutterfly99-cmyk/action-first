@@ -320,6 +320,7 @@ export default function ActionQueuePage() {
   // back to step 7.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (backInFlightRef.current) return;
     if (!guided.active || !guided.step) return;
     const detailIdx = TOUR_STEPS.indexOf("detail_panel");
     const currentIdx = TOUR_STEPS.indexOf(
