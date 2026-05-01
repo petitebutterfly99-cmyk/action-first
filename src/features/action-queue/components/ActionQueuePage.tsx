@@ -295,6 +295,11 @@ export default function ActionQueuePage() {
     if (guided.active) tourEndedRef.current = false;
   }, [guided.active]);
 
+  // When the user presses Back, suppress the auto-advance effects for one
+  // tick so they don't see the still-open detail panel / outreach modal
+  // and immediately snap the tour forward again.
+  const backInFlightRef = useRef(false);
+
   const endGuidedTour = () => {
     tourEndedRef.current = true;
     guided.exit("user");
