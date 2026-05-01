@@ -149,7 +149,7 @@ Already defined as enum `app_role`: **`csm`** and **`admin`**.
 | **`outreach_templates`** *(new)* | `user_id = auth.uid()` for all operations | Templates are personal IP |
 | **`benchmarks`** *(new)* | SELECT: `true` (public read for authenticated users); INSERT/UPDATE/DELETE: `has_role(auth.uid(), 'admin')` via security-definer function | Stats are shared but only admins curate |
 
-Admin elevation requires the standard `user_roles` + `has_role()` pattern (security-definer function) — **never** check role from the client.
+Admin elevation requires the standard `user_roles` + `has_role()` pattern (security-definer function) — **never** check role from the client. The `SECURITY DEFINER` grant on `public.has_role` is an intentional, documented exception to the "no public security-definer functions" linter rule (required to avoid recursive RLS on `user_roles`); see `HANDOFF.md` → "Security posture".
 
 ---
 
