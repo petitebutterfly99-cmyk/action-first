@@ -64,8 +64,8 @@ const COPY: Record<StepKey, StepCopy> = {
   },
   outreach_modal: {
     title: "Personalize and send",
-    body: "Edit the message if needed, then click Send Message. We'll log it for you.",
-    side: "top",
+    body: "Edit the message here, then click Send Message below. We'll log it for you.",
+    side: "right",
     showNext: false,
   },
 };

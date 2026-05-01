@@ -26,6 +26,8 @@ interface OutreachModalProps {
   onSend: (account: Account, message: string) => void;
   /** Optional ref forwarded to the "Send Message" button (for the guided tour). */
   sendButtonRef?: React.Ref<HTMLButtonElement>;
+  /** Optional ref forwarded to the message textarea (for the guided tour). */
+  messageFieldRef?: React.Ref<HTMLTextAreaElement>;
 }
 
 type SendState = "idle" | "sending" | "error";

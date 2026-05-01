@@ -215,7 +215,7 @@ export function CoachmarkPopover({
                   className="h-7 text-xs ml-auto text-muted-foreground"
                   onClick={onSkip}
                 >
-                  Skip tour
+                  End guided tour
                 </Button>
               )}
             </div>
