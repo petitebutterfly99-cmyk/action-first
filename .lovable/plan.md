@@ -1,46 +1,40 @@
 ## Problem
 
-Pressing **Back** in the guided tour appears to do nothing on the later steps (especially step 7 → 6 and step 8 → 7). On the earlier steps (welcome → filters → kpi → performance → highlight_row) Back works fine because those are pure UI coachmarks with no side effects.
+After clicking the password reset link in the email, users land on `/reset-password` and get stuck on "Verifying your reset link…" — the page never advances to the new-password form.
 
-## Root cause
+## Root Cause
 
-`onNext` for the later steps does more than just advance the step counter — it opens panels:
+`ResetPasswordPage` only listens for `PASSWORD_RECOVERY` / `SIGNED_IN` events and calls `getSession()`. It doesn't handle the three possible URL formats Supabase returns from the recovery email:
 
-- Step 6 → 7 (`highlight_row` → `detail_panel`): calls `c.setSelectedAccount(guidedAccount)`, which opens the account detail side panel.
-- Step 7 → 8 (`detail_panel` → `outreach_modal`): calls `c.setOutreachAccount(target)` and `c.setSelectedAccount(null)`, which closes the detail panel and opens the outreach modal.
+1. **Hash-fragment session** (`#access_token=...&type=recovery`) — implicit flow. Auto-detected, but if the listener registers AFTER the SDK already processed the URL, the event was missed and the page only sees `getSession()` (which works) — usually fine.
+2. **PKCE code** (`?code=...`) — default in Supabase JS v2. Requires `exchangeCodeForSession(code)`. Auto-exchange only works if the original `code_verifier` is in localStorage of the SAME browser that requested the reset. Cross-browser/incognito clicks fail silently — no session, no error shown.
+3. **Error redirect** (`#error=access_denied&error_code=otp_expired&error_description=...` or `?error=...`) — expired/used links. Currently the page ignores these entirely and shows "Verifying…" forever.
 
-`guided.back()` (in `GuidedTourContext.tsx`) only rewinds the step index — it never closes the panel that the forward step opened. Two auto-advance effects in `ActionQueuePage.tsx` (lines ~316 and ~339) then immediately re-promote the tour:
-
-- If `selectedAccount` is still set and the new step is earlier than `detail_panel`, the effect snaps the tour forward to `detail_panel`.
-- If `outreachAccount` is still set and the new step is earlier than `outreach_modal`, the effect snaps it forward to `outreach_modal`.
-
-Net effect: Back on step 7 sets step to 6, the detail panel is still open, the auto-advance effect fires, step jumps back to 7. The user sees nothing happen.
+There's also a race: the `onAuthStateChange` listener inside `ResetPasswordPage` is registered AFTER React mounts, but `AuthProvider` already registered its own listener at app boot and Supabase fires `PASSWORD_RECOVERY` during the initial URL parse. By the time the page mounts, the event has already fired — only the `getSession()` fallback can flip `ready`. If session-creation failed (case 2 or 3), the page never recovers.
 
 ## Fix
 
-Wire up an `onBack` handler in `ActionQueuePage.tsx` (the same place `onNext` already lives) that mirrors the forward-step side effects, then short-circuits the auto-advance effects for one render so they don't re-promote the tour.
+Rewrite `src/features/auth/components/ResetPasswordPage.tsx` to robustly handle all three cases on mount:
 
-Concretely:
+1. **Parse both `window.location.hash` AND `window.location.search`** for `error`, `error_code`, `error_description`, `code`, and `type=recovery`.
+2. **If an error param is present**: show a friendly error state with a "Request a new reset link" button linking to `/forgot-password`. Stop trying to verify.
+3. **If a `?code=...` param is present**: explicitly call `await supabase.auth.exchangeCodeForSession(code)`. If it fails, show the same error state. On success, clean the URL (`window.history.replaceState`) and proceed.
+4. **Otherwise**: call `getSession()`. If a session exists → ready. If not → wait briefly for `PASSWORD_RECOVERY`/`SIGNED_IN` (with a ~3s timeout). If timeout elapses with no session, show the "link invalid or expired" error state.
+5. After successful password update, **sign the user out** (`supabase.auth.signOut()`) before navigating, so they go through the normal login flow with their new password rather than being silently logged in via the recovery token. Navigate to `/login` with a success toast instead of `/`.
 
-1. **`src/features/action-queue/components/ActionQueuePage.tsx`** — replace the inline `onBack={guided.back}` on `<GuidedCoachmark>` (around line 852) with a handler that:
-   - On `outreach_modal` (step 8) → close the outreach modal (`c.setOutreachAccount(null)`), reopen the detail panel for the guided account (`c.setSelectedAccount(guidedAccount)`), then call `guided.back()`.
-   - On `detail_panel` (step 7) → close the detail panel (`c.setSelectedAccount(null)`), then call `guided.back()`.
-   - On `performance` (step 5) → optionally collapse the perf panel via `setPerformanceOpen(false)` so it matches what the user saw before, then `guided.back()`.
-   - On every other step (welcome, filters_risk, filters_status, kpi, highlight_row) → just call `guided.back()`.
+### Error state UI
 
-2. **Suppress the auto-advance effects for one tick after a Back action** so they don't see the still-open panel and snap forward. Add a small ref `backInFlightRef = useRef(false)` set true at the start of the back handler and cleared on the next microtask (`queueMicrotask` or `requestAnimationFrame`). Both auto-advance effects (`useEffect` at lines ~316 and ~339) gain an early `if (backInFlightRef.current) return;` guard. This is the same pattern already used by `tourEndedRef`.
+Replace the static "Verifying your reset link…" with three clear states:
+- `verifying` — spinner + "Verifying your reset link…"
+- `ready` — the new-password form (unchanged)
+- `invalid` — message: "This reset link is invalid or has expired." + "Request a new link" button → `/forgot-password`
 
-   Order in the back handler matters: set `backInFlightRef.current = true` → mutate the panel state → call `guided.back()` → schedule the reset. Because the effect runs after the synchronous state updates, the guard is in place when it evaluates.
+### Files changed
 
-## Things explicitly NOT changed
+- `src/features/auth/components/ResetPasswordPage.tsx` — only file modified.
 
-- `guided.back()` itself in `GuidedTourContext.tsx` — keep its single responsibility (rewind index).
-- `onNext`, `onSkip`, auto-start, auto-advance triggers, success modal, hero buttons, settings toggle — untouched.
-- Tour step list, copy, anchors, styling.
-- The "End guided tour" / Skip flow (`endGuidedTour`) — untouched.
+No database, edge function, or AuthProvider changes needed.
 
-## Files touched
+## Why sign out after reset
 
-- `src/features/action-queue/components/ActionQueuePage.tsx` — add `backInFlightRef`, add early-return guards to the two auto-advance `useEffect`s, replace `onBack={guided.back}` with the new handler.
-
-Approve to implement?
+Currently the recovery link silently establishes a real session, so after updating the password the user is dropped into the app already authenticated. That's confusing — and it means if a stranger clicked an intercepted reset link they'd be logged in without ever proving they know the new password. Forcing a fresh login after reset is the safer, clearer flow.

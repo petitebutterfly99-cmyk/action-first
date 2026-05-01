@@ -1,30 +1,129 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ListChecks } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ListChecks, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
+type Status = "verifying" | "ready" | "invalid";
+
+/**
+ * Parse error / code params from BOTH the URL hash and the query string.
+ * Supabase recovery links arrive in one of three shapes:
+ *   1. Implicit flow: `#access_token=...&type=recovery`
+ *   2. PKCE flow:     `?code=...`
+ *   3. Failure:       `#error=...&error_code=otp_expired&error_description=...`
+ *                     (or the same in `?error=...` form)
+ */
+function parseRecoveryParams() {
+  if (typeof window === "undefined") return { code: null, errorDescription: null };
+  const hash = window.location.hash.startsWith("#")
+    ? window.location.hash.slice(1)
+    : window.location.hash;
+  const hashParams = new URLSearchParams(hash);
+  const queryParams = new URLSearchParams(window.location.search);
+  const get = (k: string) => hashParams.get(k) ?? queryParams.get(k);
+
+  const error = get("error") ?? get("error_code");
+  const errorDescription = error
+    ? (get("error_description") ?? error).replace(/\+/g, " ")
+    : null;
+  const code = queryParams.get("code");
+
+  return { code, errorDescription };
+}
+
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<Status>("verifying");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    // Supabase parses the recovery token from the URL hash and fires
-    // PASSWORD_RECOVERY via onAuthStateChange. We just need to wait for
-    // a session to be present before allowing the form.
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setReady(true);
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    const markInvalid = (msg: string) => {
+      if (cancelled) return;
+      setErrorMsg(msg);
+      setStatus("invalid");
+    };
+
+    const markReady = () => {
+      if (cancelled) return;
+      // Strip recovery params from the URL so a refresh doesn't re-trigger
+      // verification (and so secrets don't linger in the address bar).
+      try {
+        window.history.replaceState({}, "", window.location.pathname);
+      } catch {
+        /* noop */
+      }
+      setStatus("ready");
+    };
+
+    // Listen for PASSWORD_RECOVERY / SIGNED_IN that may fire after we mount
+    // (the SDK's URL parsing is async on initial load).
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (
+        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") &&
+        session
+      ) {
+        if (timeoutId) clearTimeout(timeoutId);
+        markReady();
+      }
     });
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
-    });
-    return () => sub.subscription.unsubscribe();
+
+    (async () => {
+      const { code, errorDescription } = parseRecoveryParams();
+
+      // Case 1: explicit error in the URL — link expired/used/invalid.
+      if (errorDescription) {
+        markInvalid(errorDescription);
+        return;
+      }
+
+      // Case 2: PKCE code in the query string — exchange it for a session.
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (cancelled) return;
+        if (error) {
+          markInvalid(
+            "This reset link can't be verified in this browser. Please request a new link and open it in the same browser you used to request the reset.",
+          );
+          return;
+        }
+        markReady();
+        return;
+      }
+
+      // Case 3: implicit flow — the SDK should already have parsed the hash.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (session) {
+        markReady();
+        return;
+      }
+
+      // No code, no error, no session yet — wait briefly for an async
+      // PASSWORD_RECOVERY event, then give up with a clear error.
+      timeoutId = setTimeout(() => {
+        if (cancelled) return;
+        markInvalid(
+          "This reset link is invalid or has expired. Please request a new one.",
+        );
+      }, 4000);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,8 +138,8 @@ export default function ResetPasswordPage() {
     }
     setSubmitting(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setSubmitting(false);
     if (error) {
+      setSubmitting(false);
       toast({
         title: "Couldn't update password",
         description: error.message,
@@ -48,8 +147,20 @@ export default function ResetPasswordPage() {
       });
       return;
     }
-    toast({ title: "Password updated", description: "You're now signed in." });
-    navigate("/", { replace: true });
+
+    // Force a fresh login with the new password rather than silently
+    // dropping the user into the app via the recovery-token session.
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      /* noop — we still want to send them to /login */
+    }
+    setSubmitting(false);
+    toast({
+      title: "Password updated",
+      description: "Sign in with your new password.",
+    });
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -63,16 +174,41 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="bg-card border rounded-lg p-6 shadow-sm">
-          <h1 className="text-base font-semibold mb-1">Set a new password</h1>
+          <h1 className="text-base font-semibold mb-1">
+            {status === "invalid" ? "Reset link problem" : "Set a new password"}
+          </h1>
           <p className="text-xs text-muted-foreground mb-5">
-            Enter a new password for your account.
+            {status === "invalid"
+              ? "We couldn't verify your reset link."
+              : "Enter a new password for your account."}
           </p>
 
-          {!ready ? (
-            <p className="text-xs text-muted-foreground">
+          {status === "verifying" && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Verifying your reset link…
-            </p>
-          ) : (
+            </div>
+          )}
+
+          {status === "invalid" && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                {errorMsg ??
+                  "This reset link is invalid or has expired."}
+              </p>
+              <Button asChild className="w-full h-9 text-sm">
+                <Link to="/forgot-password">Request a new link</Link>
+              </Button>
+              <Link
+                to="/login"
+                className="block text-xs text-center text-muted-foreground hover:text-foreground"
+              >
+                Back to sign in
+              </Link>
+            </div>
+          )}
+
+          {status === "ready" && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-xs">New password</Label>
