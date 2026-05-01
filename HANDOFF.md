@@ -310,3 +310,31 @@ surfaced a new class of gaps. Grouped by category so the next team can triage.
 
 - **Both unaudited.** No keyboard-nav sweep, no screen-reader pass, no
   string externalization. Worth flagging now rather than discovering cold.
+
+---
+
+## Security posture (2026-05-01 audit)
+
+- **RLS** enforces per-CSM scoping on `accounts`, `activity_log`,
+  `outreach_templates`, `events`, `user_settings`, `profiles`. Admin-only
+  writes on `benchmarks` and `user_roles` go through `has_role()`.
+- **Roles** live in `user_roles` (never on `profiles`). Role checks use the
+  `SECURITY DEFINER` function `public.has_role(uuid, app_role)` — required
+  to avoid recursive RLS on `user_roles`. This is an intentional, accepted
+  exception to the "no public security-definer" linter rule. The function
+  returns only a boolean.
+- **Trigger-only `SECURITY DEFINER` functions** (`set_updated_at`,
+  `handle_new_user`, `enforce_single_default_template`) had `EXECUTE`
+  revoked from `anon`/`authenticated`/`public` (migration
+  `20260501_revoke_trigger_function_execute`). They run only via triggers
+  and must never be called directly by clients.
+- **Auth**: email/password sign-in. Email auto-confirm is OFF (users must
+  verify before login). **Leaked password protection (HIBP) is ENABLED** —
+  passwords are checked against the Have I Been Pwned database on signup
+  and password change.
+- **Password reset** (`/reset-password`) takes ownership of the recovery
+  URL hash by calling `supabase.auth.setSession(...)` directly to avoid a
+  race with the global `AuthProvider` listener. PKCE recovery links are
+  handled via `exchangeCodeForSession`.
+
+See the project security memory for the canonical list of accepted risks.
