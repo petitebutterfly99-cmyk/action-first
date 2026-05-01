@@ -502,7 +502,7 @@ export default function ActionQueuePage() {
               {c.needsActionCount} accounts need action
             </span>
             <span>·</span>
-            <span>{c.accounts.filter((a) => a.risk === "high").length} high risk</span>
+            <span>{c.highRiskVisibleCount} high risk</span>
             <span>·</span>
             <span>{c.contactedTodayCount} contacted today</span>
             {c.snoozedCount > 0 && (
