@@ -739,7 +739,7 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
-          sendButtonRef={detailSendRef}
+          panelRef={detailPanelRef}
         />
       )}
 
@@ -748,7 +748,6 @@ export default function ActionQueuePage() {
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
-        sendButtonRef={outreachSendRef}
         messageFieldRef={outreachMessageRef}
       />
 
@@ -763,8 +762,8 @@ export default function ActionQueuePage() {
             filters_status: statusFilterRef,
             kpi: kpiRowRef,
             performance: performanceTriggerRef,
-            highlight_row: { current: guided.focusAccountId ? c.cardRefs.current[guided.focusAccountId] ?? null : null },
-            detail_panel: detailSendRef,
+            highlight_row: guidedRowNameRef,
+            detail_panel: detailPanelRef,
             outreach_modal: outreachMessageRef,
           }}
           onNext={() => {
@@ -776,6 +775,10 @@ export default function ActionQueuePage() {
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
               if (target) {
+                // Advance the tour state immediately so the coachmark moves
+                // to step 8 on the first click, instead of waiting for the
+                // outreach modal's open effect to trigger it.
+                guided.goTo("outreach_modal");
                 c.setOutreachAccount(target);
                 return;
               }
@@ -783,17 +786,7 @@ export default function ActionQueuePage() {
             guided.next();
           }}
           onBack={guided.back}
-          onSkip={() => {
-            // Fully tear down the tour AND any surfaces it opened, so the X
-            // and "End guided tour" button truly exit on every step.
-            guided.exit("user");
-            c.setOutreachAccount(null);
-            if (c.selectedAccount && c.selectedAccount.id === guided.focusAccountId) {
-              c.setSelectedAccount(null);
-            }
-            setPerformanceOpen(false);
-            setGuidedSuccessOpen(false);
-          }}
+          onSkip={endGuidedTour}
         />
       )}
 
