@@ -102,6 +102,16 @@ const RISK_OPTIONS: {
 export default function ActionQueuePage() {
   const c = useActionQueueController();
   const guided = useGuidedTour();
+  const { settings: userSettings, updateToggle: updateUserSetting } = useUserSettings();
+  const showGuidedButtons = userSettings?.show_guided_tour_buttons ?? true;
+
+  // Disable the hero's guided-tour buttons after the CSM has used the
+  // feature. Idempotent: only fires when currently enabled.
+  const disableGuidedButtonsIfNeeded = () => {
+    if (userSettings?.show_guided_tour_buttons) {
+      void updateUserSetting("show_guided_tour_buttons", false);
+    }
+  };
 
   // Analytics: start/refresh session + derive in-page KPIs.
   const { sessionStartedISO } = useSession();
