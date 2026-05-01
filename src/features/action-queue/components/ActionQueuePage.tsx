@@ -169,8 +169,8 @@ export default function ActionQueuePage() {
   const statusFilterRef = useRef<HTMLDivElement | null>(null);
   const kpiRowRef = useRef<HTMLDivElement | null>(null);
   const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const detailSendRef = useRef<HTMLButtonElement | null>(null);
-  const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const guidedRowNameRef = useRef<HTMLButtonElement | null>(null);
   const outreachMessageRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Controlled state for the CSM Performance collapsible so the tour can
