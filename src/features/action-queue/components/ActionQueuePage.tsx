@@ -856,7 +856,27 @@ export default function ActionQueuePage() {
             }
             guided.next();
           }}
-          onBack={guided.back}
+          onBack={() => {
+            // Mirror the side effects that onNext performed when entering
+            // the current step, so going back actually returns the user to
+            // the previous coachmark instead of being snapped forward by
+            // the auto-advance effects.
+            backInFlightRef.current = true;
+            if (guided.step === "outreach_modal") {
+              c.setOutreachAccount(null);
+              if (guidedAccount) c.setSelectedAccount(guidedAccount);
+            } else if (guided.step === "detail_panel") {
+              c.setSelectedAccount(null);
+            } else if (guided.step === "performance") {
+              setPerformanceOpen(false);
+            }
+            guided.back();
+            // Release the guard after React has flushed this update so
+            // future legitimate auto-advances still work.
+            requestAnimationFrame(() => {
+              backInFlightRef.current = false;
+            });
+          }}
           onSkip={endGuidedTour}
         />
       )}
