@@ -1,53 +1,50 @@
-## Problem
+## Goal
+Make the password reset link reliably open the “create a new password” screen in the Lovable preview/published app, instead of sending the user back to the forgot-password resend flow.
 
-After clicking the password reset link, the user lands on `/reset-password` but never sees the new-password form. Auth logs confirm the implicit flow succeeds (`/verify` returns 303, "Login" event fires with `login_method: "implicit"`), so a session IS being created — the page just doesn't recognize it.
+## What I’ll change
 
-## Root Cause
+1. **Make reset verification explicit on `/reset-password`**
+   - Update `ResetPasswordPage.tsx` so it can directly consume the recovery URL hash when the user lands from the email link.
+   - If the URL contains `access_token`, `refresh_token`, and `type=recovery`, call `supabase.auth.setSession(...)` immediately, instead of relying only on the global auth provider to detect the recovery session.
+   - Keep support for PKCE links via `?code=...` using `exchangeCodeForSession(...)`.
 
-The recovery email link goes to Supabase's `/verify?token=...&type=recovery`, which 303-redirects back to `/reset-password` with `#access_token=...&refresh_token=...&type=recovery` in the URL hash.
+2. **Prevent accidental “invalid link” redirects while auth is still settling**
+   - Add a short, deterministic verification path: parse URL params first, perform any needed session setup, then show the password form when a reset session exists.
+   - Avoid marking the link invalid just because the auth context has not updated yet.
 
-When the page loads:
+3. **Keep `/reset-password` public and focused on password creation**
+   - Do not route successful recovery sessions through `PublicOnlyRoute`, so authenticated recovery sessions are not bounced away before they can update their password.
+   - Preserve the existing UI states: verifying, ready/new-password form, and invalid-link message.
 
-1. The Supabase JS client (initialized once at app boot inside `AuthProvider`) auto-parses the hash. `AuthProvider`'s `onAuthStateChange` listener — registered before the parse — receives the `PASSWORD_RECOVERY` event and updates its React state with the session.
-2. `ResetPasswordPage` mounts AFTER this. Its own `onAuthStateChange` listener registers too late and never receives the initial `PASSWORD_RECOVERY` event (Supabase v2 does not replay it for late subscribers).
-3. The page falls back to `await supabase.auth.getSession()`. This is a race: the SDK's internal hash-processing promise may or may not have written the session to storage yet. When it loses the race, `getSession()` returns `null`, the 4-second timeout fires, and the page shows "This reset link is invalid or has expired."
-4. The user goes back to `/forgot-password` and requests another link, which gets rate-limited (429s in the log). Eventually they end up stuck on `/login`.
+4. **Improve post-reset cleanup**
+   - After `updateUser({ password })` succeeds, sign out locally and navigate to `/login` with a success toast, so the user signs in again with their new password.
+   - Clear recovery tokens from the address bar after the reset session is established.
 
-The current implementation duplicates auth-state tracking that `AuthProvider` already does correctly. The cleanest fix is to read the session straight from `AuthProvider`.
+5. **Update implementation notes**
+   - Refresh `.lovable/plan.md` to reflect the corrected root cause and the new fix.
 
-## Fix
+## Technical details
 
-Rewrite `src/features/auth/components/ResetPasswordPage.tsx` to consume the auth context instead of racing the SDK.
+The current reset page depends primarily on `useAuth().session`. In practice, the recovery link can arrive with tokens in the URL hash, and the reset page may see `session === null` before the auth provider has settled. That causes the page to classify the link as invalid and show the “Request a new link” path.
 
-### Logic on mount
+The fix is to make the reset page self-sufficient for recovery URLs:
 
-1. Parse `window.location.hash` and `window.location.search` for error params (`error`, `error_code`, `error_description`). If present → `invalid` state with the description (handles expired/used links cleanly).
-2. Read `loading` and `session` from `useAuth()`.
-   - While `loading` → stay in `verifying` state (don't time out).
-   - Once `loading` is `false`:
-     - If `session` exists → `ready`. Strip the URL hash so a refresh doesn't re-trigger anything.
-     - If no session AND a PKCE `?code=...` is present → call `supabase.auth.exchangeCodeForSession(code)`. On success, the auth listener inside `AuthProvider` will pick up the new session and the effect re-runs → `ready`. On failure → `invalid` with a "open in same browser" hint.
-     - If no session AND no code → `invalid` with "link expired" message.
+```ts
+if (type === "recovery" && access_token && refresh_token) {
+  await supabase.auth.setSession({ access_token, refresh_token });
+  showNewPasswordForm();
+}
+```
 
-This eliminates the race because `AuthProvider`'s listener was registered before any URL parsing happened, so it reliably catches the recovery session. The page just observes the result.
+This removes the race for implicit recovery links while keeping the auth provider as the normal app-wide session source once the session is established.
 
-### Submit flow (unchanged behavior, kept intact)
+## Files to edit
 
-- `supabase.auth.updateUser({ password })`.
-- On success: `supabase.auth.signOut({ scope: "local" })` then navigate to `/login` with a success toast (forces a fresh login with the new password).
+- `src/features/auth/components/ResetPasswordPage.tsx`
+- `.lovable/plan.md`
 
-### UI states (unchanged)
+## Not changing
 
-- `verifying` — spinner + "Verifying your reset link…"
-- `ready` — new-password form
-- `invalid` — error message + "Request a new link" button → `/forgot-password`
-
-### Files changed
-
-- `src/features/auth/components/ResetPasswordPage.tsx` — only file modified.
-
-No changes to `AuthProvider`, routing, database, or edge functions.
-
-## Why this works
-
-`AuthProvider` is mounted at the app root and its `onAuthStateChange` listener is registered before React renders any route. That listener is the one Supabase fires when the recovery hash is parsed, so `AuthProvider`'s `session` state is the source of truth. By subscribing to it via `useAuth()`, `ResetPasswordPage` no longer needs its own listener, no longer races `getSession()`, and no longer needs an arbitrary 4-second timeout.
+- No database changes.
+- No backend function changes.
+- No auth email template changes unless a separate issue is found later with the email link itself.
