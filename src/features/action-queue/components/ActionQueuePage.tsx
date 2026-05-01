@@ -180,6 +180,26 @@ export default function ActionQueuePage() {
     if (guided.step === "performance") setPerformanceOpen(true);
   }, [guided.step]);
 
+  // When the guided tour reaches the "highlight_row" step, make sure the
+  // target row is visible (widen filters, reveal in the infinite list, scroll).
+  useEffect(() => {
+    if (guided.step !== "highlight_row" || !guidedAccount) return;
+    if (!c.riskFilter.includes(guidedAccount.risk)) {
+      c.setRiskFilter(
+        Array.from(new Set([...c.riskFilter, guidedAccount.risk])) as typeof c.riskFilter,
+      );
+    }
+    if (c.statusFilter !== "all" && c.statusFilter !== guidedAccount.status) {
+      c.setStatusFilter("all");
+    }
+    const idx = c.sortedAccounts.findIndex((a) => a.id === guidedAccount.id);
+    if (idx >= 0) c.loadMoreAccounts && undefined;
+    requestAnimationFrame(() => {
+      const el = c.cardRefs.current[guidedAccount.id];
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [guided.step, guidedAccount, c.sortedAccounts]);
+
   // Intercept the outreach send handler so we can advance the tour.
   const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
     const wasGuided = guided.active && guided.focusAccountId === account.id;
