@@ -1,40 +1,53 @@
 ## Problem
 
-After clicking the password reset link in the email, users land on `/reset-password` and get stuck on "Verifying your reset link…" — the page never advances to the new-password form.
+After clicking the password reset link, the user lands on `/reset-password` but never sees the new-password form. Auth logs confirm the implicit flow succeeds (`/verify` returns 303, "Login" event fires with `login_method: "implicit"`), so a session IS being created — the page just doesn't recognize it.
 
 ## Root Cause
 
-`ResetPasswordPage` only listens for `PASSWORD_RECOVERY` / `SIGNED_IN` events and calls `getSession()`. It doesn't handle the three possible URL formats Supabase returns from the recovery email:
+The recovery email link goes to Supabase's `/verify?token=...&type=recovery`, which 303-redirects back to `/reset-password` with `#access_token=...&refresh_token=...&type=recovery` in the URL hash.
 
-1. **Hash-fragment session** (`#access_token=...&type=recovery`) — implicit flow. Auto-detected, but if the listener registers AFTER the SDK already processed the URL, the event was missed and the page only sees `getSession()` (which works) — usually fine.
-2. **PKCE code** (`?code=...`) — default in Supabase JS v2. Requires `exchangeCodeForSession(code)`. Auto-exchange only works if the original `code_verifier` is in localStorage of the SAME browser that requested the reset. Cross-browser/incognito clicks fail silently — no session, no error shown.
-3. **Error redirect** (`#error=access_denied&error_code=otp_expired&error_description=...` or `?error=...`) — expired/used links. Currently the page ignores these entirely and shows "Verifying…" forever.
+When the page loads:
 
-There's also a race: the `onAuthStateChange` listener inside `ResetPasswordPage` is registered AFTER React mounts, but `AuthProvider` already registered its own listener at app boot and Supabase fires `PASSWORD_RECOVERY` during the initial URL parse. By the time the page mounts, the event has already fired — only the `getSession()` fallback can flip `ready`. If session-creation failed (case 2 or 3), the page never recovers.
+1. The Supabase JS client (initialized once at app boot inside `AuthProvider`) auto-parses the hash. `AuthProvider`'s `onAuthStateChange` listener — registered before the parse — receives the `PASSWORD_RECOVERY` event and updates its React state with the session.
+2. `ResetPasswordPage` mounts AFTER this. Its own `onAuthStateChange` listener registers too late and never receives the initial `PASSWORD_RECOVERY` event (Supabase v2 does not replay it for late subscribers).
+3. The page falls back to `await supabase.auth.getSession()`. This is a race: the SDK's internal hash-processing promise may or may not have written the session to storage yet. When it loses the race, `getSession()` returns `null`, the 4-second timeout fires, and the page shows "This reset link is invalid or has expired."
+4. The user goes back to `/forgot-password` and requests another link, which gets rate-limited (429s in the log). Eventually they end up stuck on `/login`.
+
+The current implementation duplicates auth-state tracking that `AuthProvider` already does correctly. The cleanest fix is to read the session straight from `AuthProvider`.
 
 ## Fix
 
-Rewrite `src/features/auth/components/ResetPasswordPage.tsx` to robustly handle all three cases on mount:
+Rewrite `src/features/auth/components/ResetPasswordPage.tsx` to consume the auth context instead of racing the SDK.
 
-1. **Parse both `window.location.hash` AND `window.location.search`** for `error`, `error_code`, `error_description`, `code`, and `type=recovery`.
-2. **If an error param is present**: show a friendly error state with a "Request a new reset link" button linking to `/forgot-password`. Stop trying to verify.
-3. **If a `?code=...` param is present**: explicitly call `await supabase.auth.exchangeCodeForSession(code)`. If it fails, show the same error state. On success, clean the URL (`window.history.replaceState`) and proceed.
-4. **Otherwise**: call `getSession()`. If a session exists → ready. If not → wait briefly for `PASSWORD_RECOVERY`/`SIGNED_IN` (with a ~3s timeout). If timeout elapses with no session, show the "link invalid or expired" error state.
-5. After successful password update, **sign the user out** (`supabase.auth.signOut()`) before navigating, so they go through the normal login flow with their new password rather than being silently logged in via the recovery token. Navigate to `/login` with a success toast instead of `/`.
+### Logic on mount
 
-### Error state UI
+1. Parse `window.location.hash` and `window.location.search` for error params (`error`, `error_code`, `error_description`). If present → `invalid` state with the description (handles expired/used links cleanly).
+2. Read `loading` and `session` from `useAuth()`.
+   - While `loading` → stay in `verifying` state (don't time out).
+   - Once `loading` is `false`:
+     - If `session` exists → `ready`. Strip the URL hash so a refresh doesn't re-trigger anything.
+     - If no session AND a PKCE `?code=...` is present → call `supabase.auth.exchangeCodeForSession(code)`. On success, the auth listener inside `AuthProvider` will pick up the new session and the effect re-runs → `ready`. On failure → `invalid` with a "open in same browser" hint.
+     - If no session AND no code → `invalid` with "link expired" message.
 
-Replace the static "Verifying your reset link…" with three clear states:
+This eliminates the race because `AuthProvider`'s listener was registered before any URL parsing happened, so it reliably catches the recovery session. The page just observes the result.
+
+### Submit flow (unchanged behavior, kept intact)
+
+- `supabase.auth.updateUser({ password })`.
+- On success: `supabase.auth.signOut({ scope: "local" })` then navigate to `/login` with a success toast (forces a fresh login with the new password).
+
+### UI states (unchanged)
+
 - `verifying` — spinner + "Verifying your reset link…"
-- `ready` — the new-password form (unchanged)
-- `invalid` — message: "This reset link is invalid or has expired." + "Request a new link" button → `/forgot-password`
+- `ready` — new-password form
+- `invalid` — error message + "Request a new link" button → `/forgot-password`
 
 ### Files changed
 
 - `src/features/auth/components/ResetPasswordPage.tsx` — only file modified.
 
-No database, edge function, or AuthProvider changes needed.
+No changes to `AuthProvider`, routing, database, or edge functions.
 
-## Why sign out after reset
+## Why this works
 
-Currently the recovery link silently establishes a real session, so after updating the password the user is dropped into the app already authenticated. That's confusing — and it means if a stranger clicked an intercepted reset link they'd be logged in without ever proving they know the new password. Forcing a fresh login after reset is the safer, clearer flow.
+`AuthProvider` is mounted at the app root and its `onAuthStateChange` listener is registered before React renders any route. That listener is the one Supabase fires when the recovery hash is parsed, so `AuthProvider`'s `session` state is the source of truth. By subscribing to it via `useAuth()`, `ResetPasswordPage` no longer needs its own listener, no longer races `getSession()`, and no longer needs an arbitrary 4-second timeout.
