@@ -72,7 +72,9 @@ Demo CSMs (shared password `demo1234`): `sarah.chen@demo.app`, `marcus.rivera@de
 **Purpose:** allow new CSMs to self-register. New users default to role `csm` with zero assigned accounts until an admin assigns them.
 
 ### 6.3 Forgot Password / Reset Password — `/forgot-password`, `/reset-password`
-**Purpose:** standard email-based password recovery via Supabase Auth.
+**Purpose:** standard email-based password recovery via Lovable Cloud auth.
+
+The reset page parses both implicit (`#access_token=...&refresh_token=...&type=recovery`) and PKCE (`?code=...`) recovery links and calls `setSession` / `exchangeCodeForSession` itself — instead of waiting for the global auth listener — so the user is reliably shown the **"Set a new password"** form rather than being bounced back to the "request a new link" modal. Expired/invalid links surface a clear error with a one-click path to request a new link. After a successful update the page signs the user out so they re-authenticate with the new password. Leaked-password protection (HIBP) is enabled, so passwords known to be breached are rejected at this step.
 
 ### 6.4 Action Queue — `/` (primary screen, post-login landing)
 The heart of the product.
@@ -197,8 +199,8 @@ A KPI row plus CSM performance panel (`features/analytics/`) render inline above
 ## 9. Mocked vs. Real
 
 ### 9.1 Real
-- **Authentication:** Supabase Auth (email + password), real session handling, protected routes, logout, signup, forgot/reset password.
-- **Database & access control:** Supabase Postgres with three tables — `profiles`, `accounts`, `activity_log`. Row-level security policies enforce per-CSM scoping (`assigned_csm_id = auth.uid()`) at the database, not in the client.
+- **Authentication:** Lovable Cloud auth (email + password), real session handling, protected routes, logout, signup, forgot/reset password. **Leaked password protection (HIBP) is enabled**; email auto-confirm is off (users must verify before sign-in). The reset-password page owns the recovery URL hash directly to avoid a race with the global auth listener.
+- **Database & access control:** Lovable Cloud (Postgres) with RLS-scoped tables — `profiles`, `accounts`, `activity_log`, `events`, `user_settings`, `outreach_templates`, `benchmarks`, `user_roles`. Per-CSM scoping (`assigned_csm_id = auth.uid()`) is enforced at the database, not in the client. Admin-only writes (e.g. `benchmarks`, `user_roles`) are gated by the `has_role()` SECURITY DEFINER function — the documented intentional exception to the "no public security-definer" linter rule, required to avoid recursive RLS on `user_roles`. Trigger-only definer functions (`set_updated_at`, `handle_new_user`, `enforce_single_default_template`) had public `EXECUTE` revoked.
 - **User profiles:** auto-created on signup via a Postgres trigger; default role `csm`.
 - **Account ownership model:** every account row carries an `assigned_csm_id` foreign key into `profiles`.
 - **Outreach state model:** `last_outreach_sent_at` (timestamptz), `last_outreach_sent_by`, and `outreach_count` are the row-level source of truth for both the per-row "Contacted today" badge and the aggregate Contacted Today metric. Atomic update on a successful send.
