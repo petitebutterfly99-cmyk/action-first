@@ -31,6 +31,8 @@ interface AccountDetailPanelProps {
   onSendOutreach: (account: Account) => void;
   /** Optional ref forwarded to the "Send Outreach" button (for the guided tour). */
   sendButtonRef?: React.Ref<HTMLButtonElement>;
+  /** Optional ref forwarded to the panel container (for the guided tour). */
+  panelRef?: React.Ref<HTMLDivElement>;
 }
 
 const STATE_STYLES: Record<
