@@ -1,35 +1,56 @@
-I reproduced the issue: when Step 7’s “Open send dialog” coachmark is clicked, the click occurs outside the account detail sheet from Radix’s perspective. The sheet closes first, which unmounts the anchor and leaves the tour on Step 7, so it appears to show Step 7 again instead of progressing to Step 8. The same outside-interaction timing can also cause Step 8’s “End guided tour” to require a second click.
+## Goal
 
-Plan:
+Auto-hide the guided tour entry buttons ("Start with highest-risk account" and "Guide me") in the Action Queue hero once the CSM has used the feature, and add a Settings toggle to re-enable them on demand.
 
-1. Add a tour-transition guard in `ActionQueuePage.tsx`
-   - Track when the tour is intentionally transitioning from Step 7 to Step 8.
-   - Use this guard to ignore the detail sheet’s close callback during the “Open send dialog” transition.
-   - Move the tour to `outreach_modal` before opening the outreach modal, then close the detail panel, so the UI cannot render Step 7 again during the intermediate state.
+**Constraint**: Do not alter any guided tour internals — coachmark logic, step ordering, focus handling, success modal, exit logic, anchors, or the recent Step 6/7/8 fixes remain exactly as they are.
 
-2. Make guided modal close handlers tour-aware
-   - Replace direct `onClose={() => c.setSelectedAccount(null)}` and `onClose={() => c.setOutreachAccount(null)}` handlers with stable handlers that:
-     - do not close the detail panel while Step 7 is transitioning to Step 8,
-     - do not close/re-open the outreach modal during Step 8’s explicit exit,
-     - keep normal non-tour behavior unchanged.
+## Behavior
 
-3. Prevent outside-click dismissal from stealing coachmark clicks
-   - In `AccountDetailPanel`, add optional props to prevent Radix outside interactions while the guided tour is controlling Step 7.
-   - In `OutreachModal`, add optional props to prevent Radix outside interactions while Step 8 is active.
-   - Pass these props only during the relevant guided steps, so regular users can still dismiss panels/modals normally outside the tour.
+- **First-time CSMs**: hero shows both buttons exactly as today.
+- **After completing the tour** (success modal reached) **or after explicitly ending it** ("End guided tour"): both buttons disappear from the hero on subsequent visits and immediately within the current session.
+- **Settings page**: new toggle "Show guided tour buttons in Action Queue" — when flipped on, the buttons reappear immediately. Default for new users: `true`.
 
-4. Harden the Step 7 and Step 8 actions
-   - Step 7 “Open send dialog” will perform one deterministic transition:
-     - set tour step to `outreach_modal`,
-     - open outreach modal for the same guided account,
-     - close detail panel without allowing auto-advance effects to snap back.
-   - Step 8 “End guided tour” will perform one deterministic exit:
-     - mark the tour as ended,
-     - close outreach modal/detail panel/outcome modal,
-     - exit guided mode once, without rendering Step 8 again.
+## Where the preference lives
 
-5. Verify in browser after implementation
-   - Run through Step 6 → Step 7 → Step 8.
-   - Confirm “Open send dialog” opens the outreach modal on the first click and displays Step 8.
-   - Confirm Step 7 does not reappear.
-   - Confirm Step 8 “End guided tour” exits on the first click and does not reappear.
+Reuse the existing `user_settings` table. Add one boolean column:
+
+- `show_guided_tour_buttons boolean NOT NULL DEFAULT true`
+
+RLS policies on `user_settings` already cover per-user read/write. No new table, no new policies needed.
+
+## Technical changes (additive only)
+
+1. **Migration** — `ALTER TABLE public.user_settings ADD COLUMN show_guided_tour_buttons boolean NOT NULL DEFAULT true;`
+
+2. **`src/features/settings/hooks/useUserSettings.ts`**
+   - Add `show_guided_tour_buttons: boolean` to `UserSettings`, `DEFAULTS` (`true`), the `select(...)` columns, the load mapping, and the upsert payload.
+
+3. **`src/features/action-queue/components/ActionQueuePage.tsx`** (additive — no changes to existing tour wiring)
+   - Read `settings.show_guided_tour_buttons` via `useUserSettings`.
+   - Pass it to `<ActionQueueHero showGuidedButtons={...} />`.
+   - In two places, fire-and-forget `updateToggle("show_guided_tour_buttons", false)`:
+     - When the success modal is dismissed (tour completed).
+     - When the user clicks "End guided tour" / exits via the coachmark skip handler.
+   - These calls are added **alongside** the existing `guided.exit(...)` calls — they do not replace or change any tour state transitions.
+
+4. **`src/features/action-queue/components/ActionQueueHero.tsx`**
+   - Accept `showGuidedButtons?: boolean` (default `true`).
+   - When `false`, omit the "Start with highest-risk account" button, the "Guide me" button, and the "N high-risk accounts waiting" inline label. Headline + descriptive copy stay visible. No other prop or behavior changes.
+
+5. **`src/features/settings/components/SettingsPage.tsx`**
+   - Add a new card section "Onboarding" with a `Switch` bound to `show_guided_tour_buttons`:
+     - Label: "Show guided tour buttons in Action Queue"
+     - Helper: "Re-enable the 'Start with highest-risk account' and 'Guide me' buttons on the queue page."
+
+## Files NOT touched
+
+- `GuidedTourContext.tsx`, `GuidedCoachmark.tsx`, `CoachmarkPopover.tsx`, `CoachmarkBackdrop.tsx`, `GuidedSuccessModal.tsx`
+- `AccountDetailPanel.tsx`, `OutreachModal.tsx`, `ActionQueueRow.tsx`
+- Any tour step ordering, anchors, or auto-advance logic
+
+## Edge cases
+
+- Settings still loading on first paint → treat as `true` (default) so we don't flicker the buttons away for first-time users.
+- If the auto-disable upsert fails (offline), the local `useUserSettings` hook already rolls back; the buttons reappear and the user can dismiss again later. No tour behavior is affected.
+
+Approve to implement?

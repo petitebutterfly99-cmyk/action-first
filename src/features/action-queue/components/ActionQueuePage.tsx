@@ -53,6 +53,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionQueueHero } from "./ActionQueueHero";
 import { pickNextBestCandidate } from "../api/queueLogic";
+import { useUserSettings } from "@/features/settings/hooks/useUserSettings";
 
 const STATUS_FILTER_OPTIONS: { value: "all" | AccountStatus; label: string }[] = [
   { value: "all", label: "All" },
@@ -101,6 +102,16 @@ const RISK_OPTIONS: {
 export default function ActionQueuePage() {
   const c = useActionQueueController();
   const guided = useGuidedTour();
+  const { settings: userSettings, updateToggle: updateUserSetting } = useUserSettings();
+  const showGuidedButtons = userSettings?.show_guided_tour_buttons ?? true;
+
+  // Disable the hero's guided-tour buttons after the CSM has used the
+  // feature. Idempotent: only fires when currently enabled.
+  const disableGuidedButtonsIfNeeded = () => {
+    if (userSettings?.show_guided_tour_buttons) {
+      void updateUserSetting("show_guided_tour_buttons", false);
+    }
+  };
 
   // Analytics: start/refresh session + derive in-page KPIs.
   const { sessionStartedISO } = useSession();
@@ -243,6 +254,7 @@ export default function ActionQueuePage() {
     if (guided.active) {
       guided.exit("user");
       setGuidedSuccessOpen(false);
+      disableGuidedButtonsIfNeeded();
     } else {
       startWithHighestRisk();
     }
@@ -255,6 +267,9 @@ export default function ActionQueuePage() {
 
   const handleGuidedNext = () => {
     setGuidedSuccessOpen(false);
+    // Reaching the success modal means the CSM completed the tour at
+    // least once — hide the hero entry buttons going forward.
+    disableGuidedButtonsIfNeeded();
     if (guidedNextAccount) {
       guided.start(guidedNextAccount.id, { source: "manual" });
       requestAnimationFrame(() => {
@@ -269,6 +284,7 @@ export default function ActionQueuePage() {
   const handleGuidedExit = () => {
     setGuidedSuccessOpen(false);
     guided.exit("user");
+    disableGuidedButtonsIfNeeded();
   };
 
   // Guard: once the user explicitly ends the tour, ignore any in-flight
@@ -289,6 +305,7 @@ export default function ActionQueuePage() {
     }
     setPerformanceOpen(false);
     setGuidedSuccessOpen(false);
+    disableGuidedButtonsIfNeeded();
   };
 
   // When the user opens the detail panel for the guided account, jump to
@@ -352,6 +369,7 @@ export default function ActionQueuePage() {
         onStartHighest={startWithHighestRisk}
         onToggleGuided={toggleGuided}
         ctaRef={heroCtaRef}
+        showGuidedButtons={showGuidedButtons}
       />
 
       {/* Lightweight KPI row + collapsible secondary panel ----------------- */}

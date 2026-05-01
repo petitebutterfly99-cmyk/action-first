@@ -60,6 +60,30 @@ export default function SettingsPage() {
         </div>
 
         <div className="bg-card border rounded-lg p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">Onboarding</h3>
+          {loading || !settings ? (
+            <Skeleton className="h-6 w-full" />
+          ) : (
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <Label className="text-sm text-muted-foreground">
+                  Show guided tour buttons in Action Queue
+                </Label>
+                <p className="text-xs text-muted-foreground/80 mt-1">
+                  Re-enable the "Start with highest-risk account" and "Guide me"
+                  buttons on the queue page.
+                </p>
+              </div>
+              <Switch
+                checked={settings.show_guided_tour_buttons}
+                disabled={saving === "show_guided_tour_buttons"}
+                onCheckedChange={(v) => updateToggle("show_guided_tour_buttons", v)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card border rounded-lg p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground">Risk Thresholds</h3>
           <div className="text-xs text-muted-foreground space-y-2">
             <p>High Risk: No invites + no activity for 2+ days</p>

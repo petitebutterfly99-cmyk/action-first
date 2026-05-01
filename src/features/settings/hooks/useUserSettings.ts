@@ -7,6 +7,7 @@ export interface UserSettings {
   daily_digest: boolean;
   slack_notifications: boolean;
   risk_thresholds: Record<string, unknown>;
+  show_guided_tour_buttons: boolean;
 }
 
 const DEFAULTS: UserSettings = {
@@ -17,6 +18,7 @@ const DEFAULTS: UserSettings = {
     high: { min_inactive_days: 2, requires_no_invites: true },
     medium: { min_inactive_days: 1 },
   },
+  show_guided_tour_buttons: true,
 };
 
 export function useUserSettings() {
@@ -38,7 +40,7 @@ export function useUserSettings() {
     (async () => {
       const { data, error: err } = await supabase
         .from("user_settings")
-        .select("email_alerts_high_risk, daily_digest, slack_notifications, risk_thresholds")
+        .select("email_alerts_high_risk, daily_digest, slack_notifications, risk_thresholds, show_guided_tour_buttons")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
@@ -51,6 +53,7 @@ export function useUserSettings() {
           daily_digest: data.daily_digest,
           slack_notifications: data.slack_notifications,
           risk_thresholds: (data.risk_thresholds as Record<string, unknown>) ?? DEFAULTS.risk_thresholds,
+          show_guided_tour_buttons: data.show_guided_tour_buttons ?? DEFAULTS.show_guided_tour_buttons,
         });
       } else {
         setSettings(DEFAULTS);
@@ -80,6 +83,7 @@ export function useUserSettings() {
               daily_digest: next.daily_digest,
               slack_notifications: next.slack_notifications,
               risk_thresholds: next.risk_thresholds as never,
+              show_guided_tour_buttons: next.show_guided_tour_buttons,
             },
           ],
           { onConflict: "user_id" },
