@@ -52,38 +52,40 @@ export function ActionQueueHero({
             Early team activation is one of the strongest signals of retention.
             This queue helps you intervene before accounts ghost.
           </p>
-          <div className="flex flex-wrap items-center gap-2 mt-3">
-            <Button
-              ref={ctaRef}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={onStartHighest}
-              disabled={!hasHighestRisk}
-              title={
-                hasHighestRisk
-                  ? undefined
-                  : "No high-risk accounts in your queue right now"
-              }
-            >
-              Start with highest-risk account
-              <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-            </Button>
-            <Button
-              size="sm"
-              variant={guidedActive ? "outline" : "ghost"}
-              className="h-8 text-xs"
-              onClick={onToggleGuided}
-            >
-              <Compass className="w-3.5 h-3.5 mr-1.5" />
-              {guidedActive ? "Exit guided mode" : "Guide me"}
-            </Button>
-            {highRiskCount > 0 && (
-              <span className="text-[11px] text-muted-foreground ml-1">
-                {highRiskCount} high-risk account{highRiskCount === 1 ? "" : "s"}{" "}
-                waiting
-              </span>
-            )}
-          </div>
+          {showGuidedButtons && (
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <Button
+                ref={ctaRef}
+                size="sm"
+                className="h-8 text-xs"
+                onClick={onStartHighest}
+                disabled={!hasHighestRisk}
+                title={
+                  hasHighestRisk
+                    ? undefined
+                    : "No high-risk accounts in your queue right now"
+                }
+              >
+                Start with highest-risk account
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+              </Button>
+              <Button
+                size="sm"
+                variant={guidedActive ? "outline" : "ghost"}
+                className="h-8 text-xs"
+                onClick={onToggleGuided}
+              >
+                <Compass className="w-3.5 h-3.5 mr-1.5" />
+                {guidedActive ? "Exit guided mode" : "Guide me"}
+              </Button>
+              {highRiskCount > 0 && (
+                <span className="text-[11px] text-muted-foreground ml-1">
+                  {highRiskCount} high-risk account{highRiskCount === 1 ? "" : "s"}{" "}
+                  waiting
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>
