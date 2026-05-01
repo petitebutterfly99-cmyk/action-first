@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { appendLovablePreviewToken } from "@/lib/lovablePreview";
+
+function getPasswordResetRedirectUrl() {
+  return appendLovablePreviewToken(new URL("/reset-password", window.location.origin)).toString();
+}
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
@@ -17,7 +22,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setSubmitting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getPasswordResetRedirectUrl(),
     });
     setSubmitting(false);
     if (error) {
