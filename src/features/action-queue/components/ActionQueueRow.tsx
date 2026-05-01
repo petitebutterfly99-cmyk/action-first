@@ -204,6 +204,7 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
               aria-label={`Select ${account.name}`}
             />
             <button
+              ref={nameLinkRef}
               onClick={() => onSelect(account)}
               className="text-left min-w-0 w-[200px] shrink-0"
             >
