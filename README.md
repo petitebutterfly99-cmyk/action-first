@@ -28,7 +28,11 @@ New users can sign up — they default to role `csm` with zero assigned accounts
 ## Key Screens
 
 ### 1. Authentication (`/login`, `/signup`, `/forgot-password`, `/reset-password`)
-Real Supabase Auth (email + password). All app routes are protected; unauthenticated users are redirected to `/login`. Authenticated users land on the Action Queue.
+Real Lovable Cloud auth (email + password). All app routes are protected; unauthenticated users are redirected to `/login`. Authenticated users land on the Action Queue.
+
+The **password reset flow** (`/reset-password`) explicitly takes ownership of the recovery URL — it parses both implicit (`#access_token=...`) and PKCE (`?code=...`) recovery links, calls `setSession` / `exchangeCodeForSession` itself (avoiding a race with the global auth listener that previously bounced users back to "request a new link"), and signs the user out after a successful update so they re-authenticate with the new password.
+
+**Security posture:** Row-Level Security scopes every table to `assigned_csm_id = auth.uid()` (or `user_id = auth.uid()`); roles live in a separate `user_roles` table and are checked via the `has_role()` SECURITY DEFINER function (the documented exception that prevents recursive RLS); trigger-only definer functions (`set_updated_at`, `handle_new_user`, `enforce_single_default_template`) have `EXECUTE` revoked from `anon`/`authenticated`/`public`; **leaked password protection (HIBP) is enabled**; email auto-confirm is off. See `HANDOFF.md` → "Security posture" for the full audit.
 
 ### 2. Action Queue — primary screen (`/`)
 The heart of the product. A prioritized list of **the logged-in CSM's assigned accounts**, sorted by status then risk.
