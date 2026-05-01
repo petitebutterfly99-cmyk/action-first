@@ -47,6 +47,7 @@ import {
 import {
   GuidedCoachmark,
   GuidedSuccessModal,
+  TOUR_STEPS,
   useGuidedTour,
 } from "@/features/guided-tour";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -291,14 +292,19 @@ export default function ActionQueuePage() {
   };
 
   // When the user opens the detail panel for the guided account, jump to
-  // the detail-panel step (skipping intermediate intro steps if needed).
+  // the detail-panel step. We only auto-advance while the tour is still on
+  // a step BEFORE detail_panel — otherwise this effect could re-fire after
+  // the user has already moved to the outreach modal step and snap them
+  // back to step 7.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (!guided.active || !guided.step) return;
+    const detailIdx = TOUR_STEPS.indexOf("detail_panel");
+    const currentIdx = TOUR_STEPS.indexOf(
+      guided.step as Exclude<typeof guided.step, null | "success">,
+    );
+    if (currentIdx === -1 || currentIdx >= detailIdx) return;
     if (
-      guided.active &&
-      guided.step !== "detail_panel" &&
-      guided.step !== "outreach_modal" &&
-      guided.step !== "success" &&
       c.selectedAccount &&
       c.selectedAccount.id === guided.focusAccountId
     ) {
@@ -310,13 +316,18 @@ export default function ActionQueuePage() {
     }
   }, [guided, c.selectedAccount]);
 
-  // When the outreach modal opens for the guided account, advance.
+  // When the outreach modal opens for the guided account, advance. Same
+  // guard as above: only promote while we're still earlier than the
+  // outreach_modal step.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (!guided.active || !guided.step) return;
+    const outreachIdx = TOUR_STEPS.indexOf("outreach_modal");
+    const currentIdx = TOUR_STEPS.indexOf(
+      guided.step as Exclude<typeof guided.step, null | "success">,
+    );
+    if (currentIdx === -1 || currentIdx >= outreachIdx) return;
     if (
-      guided.active &&
-      guided.step !== "outreach_modal" &&
-      guided.step !== "success" &&
       c.outreachAccount &&
       c.outreachAccount.id === guided.focusAccountId
     ) {
@@ -773,11 +784,13 @@ export default function ActionQueuePage() {
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
               if (target) {
-                // Advance the tour state immediately so the coachmark moves
-                // to step 8 on the first click, instead of waiting for the
-                // outreach modal's open effect to trigger it.
-                guided.goTo("outreach_modal");
+                // Close the detail panel, open the outreach modal, and
+                // advance the tour in a single batched update. Closing
+                // selectedAccount prevents the detail-panel auto-advance
+                // effect from re-firing and snapping us back to step 7.
+                c.setSelectedAccount(null);
                 c.setOutreachAccount(target);
+                guided.goTo("outreach_modal");
                 return;
               }
             }
