@@ -52,13 +52,13 @@ const COPY: Record<StepKey, StepCopy> = {
   },
   highlight_row: {
     title: "Your top high-risk account",
-    body: "This account hasn't invited teammates and is at risk of early churn. Click Next to open it.",
+    body: "This account hasn't invited teammates and is at risk of early churn. Click the account name to open the details.",
     side: "right",
     nextLabel: "Open account",
   },
   detail_panel: {
-    title: "Send the outreach",
-    body: "Review the AI-generated message, then click Send Outreach. You can edit before sending.",
+    title: "Review the account details",
+    body: "Here's everything we know about this account — timeline, signals, and a suggested next step. When ready, open the send dialog.",
     side: "left",
     nextLabel: "Open send dialog",
   },
