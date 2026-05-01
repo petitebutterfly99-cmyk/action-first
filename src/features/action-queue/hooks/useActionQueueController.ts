@@ -92,14 +92,21 @@ export function useActionQueueController() {
   const loadMoreAccounts = () =>
     revealAccountsAtLeast(visibleAccountsCount + QUEUE_BATCH_SIZE);
 
-  const snoozedCount = accounts.filter((a) => a.status === "snoozed").length;
-  const needsActionCount = accounts.filter(
+  // Header strip counts mirror the rows actually shown in the queue
+  // (i.e. after the active risk + status filters), so the numbers always
+  // match the visible list rather than the full account set.
+  const snoozedCount = sortedAccounts.filter((a) => a.status === "snoozed").length;
+  const needsActionCount = sortedAccounts.filter(
     (a) => a.status === "needs_action" && a.risk !== "low",
   ).length;
+  const highRiskVisibleCount = sortedAccounts.filter((a) => a.risk === "high").length;
   // Aggregate "Contacted Today" — derived from the same row-level
   // last_outreach_sent_at timestamp that drives the row label. Re-sending
   // to the same account today does not double-count.
-  const contactedTodayCount = useMemo(() => countContactedToday(accounts), [accounts]);
+  const contactedTodayCount = useMemo(
+    () => countContactedToday(sortedAccounts),
+    [sortedAccounts],
+  );
   const isDefaultFilters = riskFilter.length === 3 && statusFilter === "all";
 
   // Track filter usage. Skip the initial render (default filters) so we only
@@ -435,6 +442,7 @@ export function useActionQueueController() {
     loadMoreAccounts,
     snoozedCount,
     needsActionCount,
+    highRiskVisibleCount,
     contactedTodayCount,
     isDefaultFilters,
     // Filters
