@@ -192,8 +192,6 @@ export default function ActionQueuePage() {
     if (c.statusFilter !== "all" && c.statusFilter !== guidedAccount.status) {
       c.setStatusFilter("all");
     }
-    const idx = c.sortedAccounts.findIndex((a) => a.id === guidedAccount.id);
-    if (idx >= 0) c.loadMoreAccounts && undefined;
     requestAnimationFrame(() => {
       const el = c.cardRefs.current[guidedAccount.id];
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
