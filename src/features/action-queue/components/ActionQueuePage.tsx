@@ -272,9 +272,30 @@ export default function ActionQueuePage() {
     guided.exit("user");
   };
 
+  // Guard: once the user explicitly ends the tour, ignore any in-flight
+  // state changes (modal closes, account refetches) that would otherwise
+  // trigger the auto-advance effects below and re-show a step.
+  const tourEndedRef = useRef(false);
+  useEffect(() => {
+    if (guided.active) tourEndedRef.current = false;
+  }, [guided.active]);
+
+  const endGuidedTour = () => {
+    tourEndedRef.current = true;
+    guided.exit("user");
+    c.setOutreachAccount(null);
+    c.setOutcomeAccount(null);
+    if (c.selectedAccount && c.selectedAccount.id === guided.focusAccountId) {
+      c.setSelectedAccount(null);
+    }
+    setPerformanceOpen(false);
+    setGuidedSuccessOpen(false);
+  };
+
   // When the user opens the detail panel for the guided account, jump to
   // the detail-panel step (skipping intermediate intro steps if needed).
   useEffect(() => {
+    if (tourEndedRef.current) return;
     if (
       guided.active &&
       guided.step !== "detail_panel" &&
@@ -293,6 +314,7 @@ export default function ActionQueuePage() {
 
   // When the outreach modal opens for the guided account, advance.
   useEffect(() => {
+    if (tourEndedRef.current) return;
     if (
       guided.active &&
       guided.step !== "outreach_modal" &&
