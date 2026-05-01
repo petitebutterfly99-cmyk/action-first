@@ -28,11 +28,17 @@ interface OutreachModalProps {
   sendButtonRef?: React.Ref<HTMLButtonElement>;
   /** Optional ref forwarded to the message textarea (for the guided tour). */
   messageFieldRef?: React.Ref<HTMLTextAreaElement>;
+  /**
+   * When true, prevents Radix from closing the dialog on outside pointer
+   * events / Escape. Used during the guided tour so coachmark interactions
+   * don't dismiss the modal.
+   */
+  blockAutoDismiss?: boolean;
 }
 
 type SendState = "idle" | "sending" | "error";
 
-export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, messageFieldRef }: OutreachModalProps) {
+export function OutreachModal({ account, open, onClose, onSend, sendButtonRef, messageFieldRef, blockAutoDismiss = false }: OutreachModalProps) {
   const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
