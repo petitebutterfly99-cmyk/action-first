@@ -811,7 +811,6 @@ export default function ActionQueuePage() {
             outreach_modal: outreachMessageRef,
           }}
           onNext={() => {
-            console.log("[guided] coachmark Next clicked, step=", guided.step);
             if (guided.step === "outreach_modal") return;
             if (guided.step === "highlight_row" && guidedAccount) {
               c.setSelectedAccount(guidedAccount);
@@ -819,8 +818,11 @@ export default function ActionQueuePage() {
             }
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
-              console.log("[guided] step 7 -> 8, target=", target?.id);
               if (target) {
+                // Advance the tour FIRST so the detail-panel close handler
+                // and auto-advance effects see the new step and don't
+                // re-render step 7. Then open the outreach modal and close
+                // the detail panel.
                 guided.goTo("outreach_modal");
                 c.setOutreachAccount(target);
                 c.setSelectedAccount(null);
