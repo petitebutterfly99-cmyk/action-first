@@ -6,16 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { appendLovablePreviewToken } from "@/lib/lovablePreview";
 
 function getPasswordResetRedirectUrl() {
-  const url = new URL("/reset-password", window.location.origin);
-  const previewToken = new URLSearchParams(window.location.search).get("__lovable_token");
-
-  if (previewToken) {
-    url.searchParams.set("__lovable_token", previewToken);
-  }
-
-  return url.toString();
+  return appendLovablePreviewToken(new URL("/reset-password", window.location.origin)).toString();
 }
 
 export default function ForgotPasswordPage() {
