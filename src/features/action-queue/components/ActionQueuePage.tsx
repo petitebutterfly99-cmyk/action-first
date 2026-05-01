@@ -254,6 +254,7 @@ export default function ActionQueuePage() {
     if (guided.active) {
       guided.exit("user");
       setGuidedSuccessOpen(false);
+      disableGuidedButtonsIfNeeded();
     } else {
       startWithHighestRisk();
     }
