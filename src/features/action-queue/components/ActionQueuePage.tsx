@@ -295,6 +295,11 @@ export default function ActionQueuePage() {
     if (guided.active) tourEndedRef.current = false;
   }, [guided.active]);
 
+  // When the user presses Back, suppress the auto-advance effects for one
+  // tick so they don't see the still-open detail panel / outreach modal
+  // and immediately snap the tour forward again.
+  const backInFlightRef = useRef(false);
+
   const endGuidedTour = () => {
     tourEndedRef.current = true;
     guided.exit("user");
@@ -315,6 +320,7 @@ export default function ActionQueuePage() {
   // back to step 7.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (backInFlightRef.current) return;
     if (!guided.active || !guided.step) return;
     const detailIdx = TOUR_STEPS.indexOf("detail_panel");
     const currentIdx = TOUR_STEPS.indexOf(
@@ -338,6 +344,7 @@ export default function ActionQueuePage() {
   // outreach_modal step.
   useEffect(() => {
     if (tourEndedRef.current) return;
+    if (backInFlightRef.current) return;
     if (!guided.active || !guided.step) return;
     const outreachIdx = TOUR_STEPS.indexOf("outreach_modal");
     const currentIdx = TOUR_STEPS.indexOf(
@@ -849,7 +856,27 @@ export default function ActionQueuePage() {
             }
             guided.next();
           }}
-          onBack={guided.back}
+          onBack={() => {
+            // Mirror the side effects that onNext performed when entering
+            // the current step, so going back actually returns the user to
+            // the previous coachmark instead of being snapped forward by
+            // the auto-advance effects.
+            backInFlightRef.current = true;
+            if (guided.step === "outreach_modal") {
+              c.setOutreachAccount(null);
+              if (guidedAccount) c.setSelectedAccount(guidedAccount);
+            } else if (guided.step === "detail_panel") {
+              c.setSelectedAccount(null);
+            } else if (guided.step === "performance") {
+              setPerformanceOpen(false);
+            }
+            guided.back();
+            // Release the guard after React has flushed this update so
+            // future legitimate auto-advances still work.
+            requestAnimationFrame(() => {
+              backInFlightRef.current = false;
+            });
+          }}
           onSkip={endGuidedTour}
         />
       )}
