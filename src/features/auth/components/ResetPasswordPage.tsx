@@ -6,23 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "./AuthProvider";
 
 type Status = "verifying" | "ready" | "invalid";
 
 /**
- * Parse error / code params from BOTH the URL hash and the query string.
- * Supabase recovery links arrive in one of three shapes:
- *   1. Implicit flow: `#access_token=...&type=recovery`
- *      (the SDK auto-parses this — we just observe AuthProvider's session)
+ * Parse the URL hash + query string for every shape the recovery link can
+ * arrive in:
+ *   1. Implicit flow: `#access_token=...&refresh_token=...&type=recovery`
  *   2. PKCE flow:     `?code=...`
- *      (must be exchanged manually)
  *   3. Failure:       `#error=...&error_code=otp_expired&error_description=...`
- *                     (or the same in `?error=...` form)
  */
 function parseRecoveryParams() {
   if (typeof window === "undefined") {
-    return { code: null, errorDescription: null };
+    return {
+      accessToken: null as string | null,
+      refreshToken: null as string | null,
+      type: null as string | null,
+      code: null as string | null,
+      errorDescription: null as string | null,
+    };
   }
   const hash = window.location.hash.startsWith("#")
     ? window.location.hash.slice(1)
@@ -35,25 +37,39 @@ function parseRecoveryParams() {
   const errorDescription = error
     ? (get("error_description") ?? error).replace(/\+/g, " ")
     : null;
-  const code = queryParams.get("code");
 
-  return { code, errorDescription };
+  return {
+    accessToken: get("access_token"),
+    refreshToken: get("refresh_token"),
+    type: get("type"),
+    code: queryParams.get("code"),
+    errorDescription,
+  };
+}
+
+function clearUrlHash() {
+  try {
+    window.history.replaceState({}, "", window.location.pathname);
+  } catch {
+    /* noop */
+  }
 }
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { session, loading: authLoading } = useAuth();
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("verifying");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Track whether we've already kicked off a PKCE exchange so we don't
-  // re-trigger it when this effect re-runs on auth state changes.
-  const exchangeStartedRef = useRef(false);
+  // Make sure the verification effect only runs once even under StrictMode.
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     let cancelled = false;
 
     const markInvalid = (msg: string) => {
@@ -64,67 +80,70 @@ export default function ResetPasswordPage() {
 
     const markReady = () => {
       if (cancelled) return;
-      // Strip recovery params from the URL so a refresh doesn't re-trigger
-      // verification (and so secrets don't linger in the address bar).
-      try {
-        window.history.replaceState({}, "", window.location.pathname);
-      } catch {
-        /* noop */
-      }
+      clearUrlHash();
       setStatus("ready");
     };
 
-    const { code, errorDescription } = parseRecoveryParams();
+    (async () => {
+      const { accessToken, refreshToken, type, code, errorDescription } =
+        parseRecoveryParams();
 
-    // Case 1: explicit error in the URL — link expired/used/invalid.
-    if (errorDescription) {
-      markInvalid(errorDescription);
-      return;
-    }
+      // Case 1: explicit error in the URL — link expired/used/invalid.
+      if (errorDescription) {
+        markInvalid(errorDescription);
+        return;
+      }
 
-    // While AuthProvider is still doing its initial getSession() check, wait.
-    // It will flip `loading` to false once it knows whether a session exists.
-    if (authLoading) {
-      return;
-    }
+      // Case 2: implicit recovery link with tokens in the hash.
+      // Set the session ourselves so we don't race the global AuthProvider.
+      if (accessToken && refreshToken && (type === "recovery" || !type)) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (cancelled) return;
+        if (error) {
+          markInvalid(
+            "This reset link is invalid or has expired. Please request a new one.",
+          );
+          return;
+        }
+        markReady();
+        return;
+      }
 
-    // Case A: AuthProvider already has a session (implicit-flow recovery hash
-    // was parsed by the SDK at app boot and AuthProvider's listener caught
-    // the PASSWORD_RECOVERY event). This is the common path.
-    if (session) {
-      markReady();
-      return;
-    }
-
-    // Case B: PKCE code in the query string — exchange it for a session.
-    // AuthProvider will then catch SIGNED_IN and re-render us with a session.
-    if (code) {
-      if (exchangeStartedRef.current) return;
-      exchangeStartedRef.current = true;
-      (async () => {
+      // Case 3: PKCE recovery link — exchange the code for a session.
+      if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (cancelled) return;
         if (error) {
           markInvalid(
-            "This reset link can't be verified in this browser. Please request a new link and open it in the same browser you used to request the reset.",
+            "This reset link can't be verified in this browser. Open the link in the same browser you used to request the reset, or request a new link.",
           );
+          return;
         }
-        // On success: do nothing here — AuthProvider's listener will fire
-        // SIGNED_IN, `session` will become truthy, and this effect re-runs
-        // hitting Case A above.
-      })();
-      return;
-    }
+        markReady();
+        return;
+      }
 
-    // Case C: no session, no code, no error — link is missing or expired.
-    markInvalid(
-      "This reset link is invalid or has expired. Please request a new one.",
-    );
+      // Case 4: no recovery params, but a session may already exist
+      // (e.g. the SDK auto-parsed the hash before we read it).
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session) {
+        markReady();
+        return;
+      }
+
+      markInvalid(
+        "This reset link is invalid or has expired. Please request a new one.",
+      );
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, session]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +167,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    // Force a fresh login with the new password rather than silently
+    // Force a fresh sign-in with the new password rather than silently
     // dropping the user into the app via the recovery-token session.
     try {
       await supabase.auth.signOut({ scope: "local" });
