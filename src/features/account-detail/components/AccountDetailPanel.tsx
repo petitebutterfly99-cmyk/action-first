@@ -33,6 +33,12 @@ interface AccountDetailPanelProps {
   sendButtonRef?: React.Ref<HTMLButtonElement>;
   /** Optional ref forwarded to the panel container (for the guided tour). */
   panelRef?: React.Ref<HTMLDivElement>;
+  /**
+   * When true, prevents Radix from closing the sheet on outside pointer
+   * events / Escape. Used during guided tour transitions so clicks on the
+   * floating coachmark don't dismiss the panel before the tour advances.
+   */
+  blockAutoDismiss?: boolean;
 }
 
 const STATE_STYLES: Record<
