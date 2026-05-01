@@ -26,6 +26,7 @@ export function ActionQueueHero({
   onStartHighest,
   onToggleGuided,
   ctaRef,
+  showGuidedButtons = true,
 }: ActionQueueHeroProps) {
   return (
     <section
