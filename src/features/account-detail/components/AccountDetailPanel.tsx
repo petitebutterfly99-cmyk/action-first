@@ -78,7 +78,7 @@ export function AccountDetailPanel({
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+      <SheetContent ref={panelRef} side="right" className="w-full sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="px-5 py-4 border-b space-y-1 text-left">
           <SheetTitle className="text-sm font-semibold">{account.name}</SheetTitle>
           <SheetDescription className="text-xs">
