@@ -7,6 +7,7 @@ export interface UserSettings {
   daily_digest: boolean;
   slack_notifications: boolean;
   risk_thresholds: Record<string, unknown>;
+  show_guided_tour_buttons: boolean;
 }
 
 const DEFAULTS: UserSettings = {
@@ -17,6 +18,7 @@ const DEFAULTS: UserSettings = {
     high: { min_inactive_days: 2, requires_no_invites: true },
     medium: { min_inactive_days: 1 },
   },
+  show_guided_tour_buttons: true,
 };
 
 export function useUserSettings() {
