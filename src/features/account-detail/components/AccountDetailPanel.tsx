@@ -71,6 +71,7 @@ export function AccountDetailPanel({
   onSendOutreach,
   sendButtonRef,
   panelRef,
+  blockAutoDismiss = false,
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
@@ -83,8 +84,21 @@ export function AccountDetailPanel({
   const inviteRetentionCopy = renderBenchmark(benchmarks?.invite_retention_compare);
 
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent ref={panelRef} side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+    <Sheet open onOpenChange={(o) => !o && !blockAutoDismiss && onClose()}>
+      <SheetContent
+        ref={panelRef}
+        side="right"
+        className="w-full sm:max-w-md p-0 flex flex-col"
+        onPointerDownOutside={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          if (blockAutoDismiss) e.preventDefault();
+        }}
+      >
         <SheetHeader className="px-5 py-4 border-b space-y-1 text-left">
           <SheetTitle className="text-sm font-semibold">{account.name}</SheetTitle>
           <SheetDescription className="text-xs">
