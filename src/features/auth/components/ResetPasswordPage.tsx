@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ListChecks, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "./AuthProvider";
 
 type Status = "verifying" | "ready" | "invalid";
 
@@ -13,12 +14,16 @@ type Status = "verifying" | "ready" | "invalid";
  * Parse error / code params from BOTH the URL hash and the query string.
  * Supabase recovery links arrive in one of three shapes:
  *   1. Implicit flow: `#access_token=...&type=recovery`
+ *      (the SDK auto-parses this — we just observe AuthProvider's session)
  *   2. PKCE flow:     `?code=...`
+ *      (must be exchanged manually)
  *   3. Failure:       `#error=...&error_code=otp_expired&error_description=...`
  *                     (or the same in `?error=...` form)
  */
 function parseRecoveryParams() {
-  if (typeof window === "undefined") return { code: null, errorDescription: null };
+  if (typeof window === "undefined") {
+    return { code: null, errorDescription: null };
+  }
   const hash = window.location.hash.startsWith("#")
     ? window.location.hash.slice(1)
     : window.location.hash;
@@ -38,14 +43,18 @@ function parseRecoveryParams() {
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { session, loading: authLoading } = useAuth();
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<Status>("verifying");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Track whether we've already kicked off a PKCE exchange so we don't
+  // re-trigger it when this effect re-runs on auth state changes.
+  const exchangeStartedRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const markInvalid = (msg: string) => {
       if (cancelled) return;
@@ -65,66 +74,57 @@ export default function ResetPasswordPage() {
       setStatus("ready");
     };
 
-    // Listen for PASSWORD_RECOVERY / SIGNED_IN that may fire after we mount
-    // (the SDK's URL parsing is async on initial load).
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (cancelled) return;
-      if (
-        (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") &&
-        session
-      ) {
-        if (timeoutId) clearTimeout(timeoutId);
-        markReady();
-      }
-    });
+    const { code, errorDescription } = parseRecoveryParams();
 
-    (async () => {
-      const { code, errorDescription } = parseRecoveryParams();
+    // Case 1: explicit error in the URL — link expired/used/invalid.
+    if (errorDescription) {
+      markInvalid(errorDescription);
+      return;
+    }
 
-      // Case 1: explicit error in the URL — link expired/used/invalid.
-      if (errorDescription) {
-        markInvalid(errorDescription);
-        return;
-      }
+    // While AuthProvider is still doing its initial getSession() check, wait.
+    // It will flip `loading` to false once it knows whether a session exists.
+    if (authLoading) {
+      return;
+    }
 
-      // Case 2: PKCE code in the query string — exchange it for a session.
-      if (code) {
+    // Case A: AuthProvider already has a session (implicit-flow recovery hash
+    // was parsed by the SDK at app boot and AuthProvider's listener caught
+    // the PASSWORD_RECOVERY event). This is the common path.
+    if (session) {
+      markReady();
+      return;
+    }
+
+    // Case B: PKCE code in the query string — exchange it for a session.
+    // AuthProvider will then catch SIGNED_IN and re-render us with a session.
+    if (code) {
+      if (exchangeStartedRef.current) return;
+      exchangeStartedRef.current = true;
+      (async () => {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (cancelled) return;
         if (error) {
           markInvalid(
             "This reset link can't be verified in this browser. Please request a new link and open it in the same browser you used to request the reset.",
           );
-          return;
         }
-        markReady();
-        return;
-      }
+        // On success: do nothing here — AuthProvider's listener will fire
+        // SIGNED_IN, `session` will become truthy, and this effect re-runs
+        // hitting Case A above.
+      })();
+      return;
+    }
 
-      // Case 3: implicit flow — the SDK should already have parsed the hash.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (cancelled) return;
-      if (session) {
-        markReady();
-        return;
-      }
-
-      // No code, no error, no session yet — wait briefly for an async
-      // PASSWORD_RECOVERY event, then give up with a clear error.
-      timeoutId = setTimeout(() => {
-        if (cancelled) return;
-        markInvalid(
-          "This reset link is invalid or has expired. Please request a new one.",
-        );
-      }, 4000);
-    })();
+    // Case C: no session, no code, no error — link is missing or expired.
+    markInvalid(
+      "This reset link is invalid or has expired. Please request a new one.",
+    );
 
     return () => {
       cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-      sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [authLoading, session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,8 +193,7 @@ export default function ResetPasswordPage() {
           {status === "invalid" && (
             <div className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                {errorMsg ??
-                  "This reset link is invalid or has expired."}
+                {errorMsg ?? "This reset link is invalid or has expired."}
               </p>
               <Button asChild className="w-full h-9 text-sm">
                 <Link to="/forgot-password">Request a new link</Link>
