@@ -28,6 +28,8 @@ interface ActionQueueRowProps {
   highlight?: boolean;
   snoozeUntil?: Date;
   followUpDate?: Date;
+  /** Optional ref forwarded to the account-name link (for the guided tour). */
+  nameLinkRef?: React.Ref<HTMLButtonElement>;
 }
 
 const STATUS_PILL: Record<AccountStatus, { label: string; className: string } | null> = {
@@ -94,6 +96,7 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
       highlight = false,
       snoozeUntil,
       followUpDate,
+      nameLinkRef,
     },
     ref,
   ) {
@@ -201,6 +204,7 @@ export const ActionQueueRow = forwardRef<HTMLDivElement, ActionQueueRowProps>(
               aria-label={`Select ${account.name}`}
             />
             <button
+              ref={nameLinkRef}
               onClick={() => onSelect(account)}
               className="text-left min-w-0 w-[200px] shrink-0"
             >

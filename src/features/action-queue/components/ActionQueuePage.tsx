@@ -169,8 +169,8 @@ export default function ActionQueuePage() {
   const statusFilterRef = useRef<HTMLDivElement | null>(null);
   const kpiRowRef = useRef<HTMLDivElement | null>(null);
   const performanceTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const detailSendRef = useRef<HTMLButtonElement | null>(null);
-  const outreachSendRef = useRef<HTMLButtonElement | null>(null);
+  const detailPanelRef = useRef<HTMLDivElement | null>(null);
+  const guidedRowNameRef = useRef<HTMLButtonElement | null>(null);
   const outreachMessageRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Controlled state for the CSM Performance collapsible so the tour can
@@ -179,6 +179,24 @@ export default function ActionQueuePage() {
   useEffect(() => {
     if (guided.step === "performance") setPerformanceOpen(true);
   }, [guided.step]);
+
+  // When the guided tour reaches the "highlight_row" step, make sure the
+  // target row is visible (widen filters, reveal in the infinite list, scroll).
+  useEffect(() => {
+    if (guided.step !== "highlight_row" || !guidedAccount) return;
+    if (!c.riskFilter.includes(guidedAccount.risk)) {
+      c.setRiskFilter(
+        Array.from(new Set([...c.riskFilter, guidedAccount.risk])) as typeof c.riskFilter,
+      );
+    }
+    if (c.statusFilter !== "all" && c.statusFilter !== guidedAccount.status) {
+      c.setStatusFilter("all");
+    }
+    requestAnimationFrame(() => {
+      const el = c.cardRefs.current[guidedAccount.id];
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [guided.step, guidedAccount, c.sortedAccounts]);
 
   // Intercept the outreach send handler so we can advance the tour.
   const handleSendOutreachWithGuided = (account: import("@/shared/data/accounts").Account, message: string) => {
@@ -252,9 +270,30 @@ export default function ActionQueuePage() {
     guided.exit("user");
   };
 
+  // Guard: once the user explicitly ends the tour, ignore any in-flight
+  // state changes (modal closes, account refetches) that would otherwise
+  // trigger the auto-advance effects below and re-show a step.
+  const tourEndedRef = useRef(false);
+  useEffect(() => {
+    if (guided.active) tourEndedRef.current = false;
+  }, [guided.active]);
+
+  const endGuidedTour = () => {
+    tourEndedRef.current = true;
+    guided.exit("user");
+    c.setOutreachAccount(null);
+    c.setOutcomeAccount(null);
+    if (c.selectedAccount && c.selectedAccount.id === guided.focusAccountId) {
+      c.setSelectedAccount(null);
+    }
+    setPerformanceOpen(false);
+    setGuidedSuccessOpen(false);
+  };
+
   // When the user opens the detail panel for the guided account, jump to
   // the detail-panel step (skipping intermediate intro steps if needed).
   useEffect(() => {
+    if (tourEndedRef.current) return;
     if (
       guided.active &&
       guided.step !== "detail_panel" &&
@@ -273,6 +312,7 @@ export default function ActionQueuePage() {
 
   // When the outreach modal opens for the guided account, advance.
   useEffect(() => {
+    if (tourEndedRef.current) return;
     if (
       guided.active &&
       guided.step !== "outreach_modal" &&
@@ -608,6 +648,7 @@ export default function ActionQueuePage() {
                       }
                       snoozeUntil={c.snoozes[account.id]?.until}
                       followUpDate={c.followUpDates[account.id]}
+                      nameLinkRef={isGuidedTarget ? guidedRowNameRef : undefined}
                     />
                   );
                 })}
@@ -696,7 +737,7 @@ export default function ActionQueuePage() {
           account={c.selectedAccount}
           onClose={() => c.setSelectedAccount(null)}
           onSendOutreach={c.setOutreachAccount}
-          sendButtonRef={detailSendRef}
+          panelRef={detailPanelRef}
         />
       )}
 
@@ -705,7 +746,6 @@ export default function ActionQueuePage() {
         open={!!c.outreachAccount}
         onClose={() => c.setOutreachAccount(null)}
         onSend={handleSendOutreachWithGuided}
-        sendButtonRef={outreachSendRef}
         messageFieldRef={outreachMessageRef}
       />
 
@@ -720,8 +760,8 @@ export default function ActionQueuePage() {
             filters_status: statusFilterRef,
             kpi: kpiRowRef,
             performance: performanceTriggerRef,
-            highlight_row: { current: guided.focusAccountId ? c.cardRefs.current[guided.focusAccountId] ?? null : null },
-            detail_panel: detailSendRef,
+            highlight_row: guidedRowNameRef,
+            detail_panel: detailPanelRef,
             outreach_modal: outreachMessageRef,
           }}
           onNext={() => {
@@ -733,6 +773,10 @@ export default function ActionQueuePage() {
             if (guided.step === "detail_panel") {
               const target = c.selectedAccount ?? guidedAccount;
               if (target) {
+                // Advance the tour state immediately so the coachmark moves
+                // to step 8 on the first click, instead of waiting for the
+                // outreach modal's open effect to trigger it.
+                guided.goTo("outreach_modal");
                 c.setOutreachAccount(target);
                 return;
               }
@@ -740,17 +784,7 @@ export default function ActionQueuePage() {
             guided.next();
           }}
           onBack={guided.back}
-          onSkip={() => {
-            // Fully tear down the tour AND any surfaces it opened, so the X
-            // and "End guided tour" button truly exit on every step.
-            guided.exit("user");
-            c.setOutreachAccount(null);
-            if (c.selectedAccount && c.selectedAccount.id === guided.focusAccountId) {
-              c.setSelectedAccount(null);
-            }
-            setPerformanceOpen(false);
-            setGuidedSuccessOpen(false);
-          }}
+          onSkip={endGuidedTour}
         />
       )}
 

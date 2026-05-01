@@ -31,6 +31,8 @@ interface AccountDetailPanelProps {
   onSendOutreach: (account: Account) => void;
   /** Optional ref forwarded to the "Send Outreach" button (for the guided tour). */
   sendButtonRef?: React.Ref<HTMLButtonElement>;
+  /** Optional ref forwarded to the panel container (for the guided tour). */
+  panelRef?: React.Ref<HTMLDivElement>;
 }
 
 const STATE_STYLES: Record<
@@ -62,6 +64,7 @@ export function AccountDetailPanel({
   onClose,
   onSendOutreach,
   sendButtonRef,
+  panelRef,
 }: AccountDetailPanelProps) {
   const events = buildTimeline(account);
   const insights = buildInsights(account);
@@ -75,7 +78,7 @@ export function AccountDetailPanel({
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+      <SheetContent ref={panelRef} side="right" className="w-full sm:max-w-md p-0 flex flex-col">
         <SheetHeader className="px-5 py-4 border-b space-y-1 text-left">
           <SheetTitle className="text-sm font-semibold">{account.name}</SheetTitle>
           <SheetDescription className="text-xs">

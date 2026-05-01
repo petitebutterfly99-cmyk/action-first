@@ -1,48 +1,41 @@
-# Fix Guided Tour Steps 7 & 8
+## Plan: Stabilize Guided Tour Steps 6–8
 
-Targeted fixes to the guided tour. No redesign.
+I’ll make a targeted fix to the guided tour flow so each step highlights the intended surface and advances/exits on the first click.
 
-## Issues & Fixes
+### 1. Guide 6: highlight the correct high-risk record and make the link focusable
+- Change Guide 6’s target selection from a stale/raw account lookup to the first visible high-risk account in the current sorted list, matching what the user actually sees.
+- When the tour reaches Guide 6, automatically widen filters if needed, reveal the row in the virtual/infinite list, and scroll it into view so the coachmark can anchor to it.
+- Add a dedicated ref for the account-name/open-detail button inside the row, so the guide highlights the link that opens the detail modal instead of the whole row container.
+- Keep the existing row pulse/highlight as a secondary visual cue.
 
-### 1. Step 7 ("Open send dialog") doesn't open the outreach modal
-**Cause:** `onNext` for `detail_panel` calls `c.setOutreachAccount(guidedAccount)`, but `guidedAccount` is derived from `c.accounts.find(a => a.id === guided.focusAccountId)`. If the account is filtered out or the lookup is stale, this becomes `null` and nothing happens.
+### 2. Guide 7: focus the whole detail modal, not the “Send Outreach” button
+- Add a ref to the detail panel/sheet container and anchor Guide 7 to that container.
+- Stop using the `Send Outreach` button ref as the Guide 7 anchor.
+- Update the Guide 7 copy to make it clear that the user is reviewing the detail modal before opening the send dialog.
 
-**Fix:** Prefer `c.selectedAccount` (the account currently open in the detail panel) as the source of truth, falling back to `guidedAccount`. This guarantees the modal opens for whatever the user is looking at.
+### 3. Guide 7 double-open bug: make “Open send dialog” advance immediately
+- Update the “Open send dialog” handler so that, on the first click, it both opens the outreach modal and explicitly advances tour state to Guide 8.
+- Tighten the existing auto-advance effect so it doesn’t re-route back to Guide 7 while the outreach modal is being opened.
+- This should remove the current behavior where Guide 7 appears a second time and only opens the outreach modal on the second click.
 
-### 2. Step 8 highlights the Send button instead of the message field
-**Fix:**
-- Add a `messageFieldRef` prop on `OutreachModal` and forward it to the `<Textarea>`.
-- In `ActionQueuePage`, create `outreachMessageRef` and pass it to `OutreachModal`.
-- In the `GuidedCoachmark` `anchors` map, change `outreach_modal` from `outreachSendRef` to `outreachMessageRef`.
-- Tweak the `outreach_modal` body copy slightly so it makes sense pointing at the field ("Edit the message here, then click Send Message below.").
+### 4. Guide 8: make “End guided tour” exit on the first click
+- Replace the inline skip handler with one stable shared `endGuidedTour` callback.
+- Use that same handler for the X button, backdrop dismiss, Escape, and the final “End guided tour” button.
+- Close all tour-opened surfaces in that handler: outreach dialog, detail panel, performance panel, success modal, and any pending outcome modal.
+- Add a small guard so Guide 8 cannot re-render from stale `outreachAccount` state after the tour has been ended.
 
-### 3. "Skip tour" button on step 8 should say "End guided tour" AND must actually exit the tour
-**Cause of current bug:** Even though `onSkip` calls `guided.exit("user")`, the underlying `OutreachModal` Dialog (and any other surface the tour opened) stays open, so the user perceives the tour as still active. Same problem affects the header X icon.
+### 5. Clean up related ref warnings
+- The browser console shows a React warning caused by a ref being passed through `DialogFooter`, which is a function component.
+- I’ll remove the now-unused outreach send-button ref wiring, since Guide 8 should anchor to the message field only.
 
-**Fix — single shared "end tour" handler:**
-- In `CoachmarkPopover`, rename the secondary button on the final step from "Skip tour" to "End guided tour". Both this button and the header X icon already call `onSkip` — keep that wiring so they share one exit path.
-- In `ActionQueuePage`, replace the current minimal `onSkip` with a single `endGuidedTour` function passed as `onSkip`. It must:
-  1. `guided.exit("user")` — clears tour state.
-  2. `c.setOutreachAccount(null)` — closes the outreach dialog (this is what's blocking step 8 exit today).
-  3. If `c.selectedAccount?.id === guided.focusAccountId`, call `c.setSelectedAccount(null)` to close the detail panel.
-  4. `setPerformanceOpen(false)` — collapses the perf panel if the tour opened it.
-  5. `setGuidedSuccessOpen(false)` — dismisses the success modal if shown.
+### Files to update
+- `src/features/action-queue/components/ActionQueuePage.tsx`
+- `src/features/action-queue/components/ActionQueueRow.tsx`
+- `src/features/account-detail/components/AccountDetailPanel.tsx`
+- `src/features/guided-tour/GuidedCoachmark.tsx`
+- `src/features/outreach/components/OutreachModal.tsx`
 
-This guarantees both "End guided tour" and the X icon fully tear down the tour and every surface it opened, on every step (not just step 8).
-
-### 4. Verify the same handler works on earlier steps
-The expanded `endGuidedTour` is safe on steps 1–7: each setter is a no-op when the corresponding surface isn't open. So we only need one handler for the whole tour.
-
-## Files to Edit
-
-- `src/features/guided-tour/CoachmarkPopover.tsx` — relabel "Skip tour" → "End guided tour".
-- `src/features/guided-tour/GuidedCoachmark.tsx` — minor copy tweak for `outreach_modal` step.
-- `src/features/outreach/components/OutreachModal.tsx` — add optional `messageFieldRef` prop, forward to `<Textarea>`.
-- `src/features/action-queue/components/ActionQueuePage.tsx`:
-  - Add `outreachMessageRef`, pass to `OutreachModal`.
-  - Swap anchor for `outreach_modal` step to `outreachMessageRef`.
-  - Make step 7 `onNext` use `c.selectedAccount ?? guidedAccount`.
-  - Replace `onSkip` with a single `endGuidedTour` that exits the tour AND closes the outreach modal, detail panel (if it's the guided one), performance panel, and success modal.
-
-## Out of Scope
-No new steps, no analytics changes, no visual redesign of the coachmark.
+### Expected result
+- Guide 6 highlights the first high-risk record’s open-detail link and can open the detail modal from there.
+- Guide 7 highlights the whole detail modal and opens the send dialog on the first “Open send dialog” click.
+- Guide 8’s “End guided tour” exits immediately on the first click and does not show Guide 8 again.
