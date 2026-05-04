@@ -106,6 +106,7 @@ export type Database = {
           account_name: string
           action: string
           created_at: string
+          created_by_user_id: string | null
           id: string
           note: string | null
           type: Database["public"]["Enums"]["activity_action_type"]
@@ -116,6 +117,7 @@ export type Database = {
           account_name: string
           action: string
           created_at?: string
+          created_by_user_id?: string | null
           id?: string
           note?: string | null
           type: Database["public"]["Enums"]["activity_action_type"]
@@ -126,6 +128,7 @@ export type Database = {
           account_name?: string
           action?: string
           created_at?: string
+          created_by_user_id?: string | null
           id?: string
           note?: string | null
           type?: Database["public"]["Enums"]["activity_action_type"]
@@ -242,7 +245,6 @@ export type Database = {
           email: string
           full_name: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
@@ -250,7 +252,6 @@ export type Database = {
           email: string
           full_name?: string
           id: string
-          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
@@ -258,7 +259,6 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: []
