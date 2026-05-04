@@ -23,7 +23,7 @@ vi.mock("@/shared/data/accounts", async () => {
 vi.mock("@/features/auth", () => ({
   useAuth: () => ({
     user: { id: "test-user", email: "test@demo.app" },
-    profile: { id: "test-user", full_name: "Test User", email: "test@demo.app", role: "csm" },
+    profile: { id: "test-user", full_name: "Test User", email: "test@demo.app" },
     session: { access_token: "x" },
     loading: false,
     signOut: vi.fn(),
